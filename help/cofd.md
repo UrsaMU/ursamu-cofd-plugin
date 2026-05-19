@@ -11,6 +11,8 @@ and a CoFD 2e dice roller for UrsaMU.
 - `help health` — Damage track, wound penalty, healing
 - `help beat`   — Award and subtract Beats; 5:1 conversion to Experience
 - `help xp`     — View pools, spend XP to raise traits, cost table
+- `help condition`  — Apply, remove, and resolve Conditions and Tilts
+- `help aspiration` — Add, remove, and fulfill Aspirations (max 3)
 
 ## Quick start
 

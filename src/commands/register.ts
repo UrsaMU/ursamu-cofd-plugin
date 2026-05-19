@@ -8,6 +8,8 @@ import { cgExec } from "./chargen.ts";
 import { healthExec } from "./health.ts";
 import { beatExec } from "./beat.ts";
 import { xpExec } from "./xp.ts";
+import { conditionExec } from "./condition.ts";
+import { aspirationExec } from "./aspiration.ts";
 
 addCmd({
   name: "+sheet",
@@ -124,6 +126,57 @@ Examples:
   +xp/spend vigor=2 for Marcus   Raise Marcus's Vigor (Arcane XP, builder+).
   +xp/list                       Show the cost table.`,
   exec: xpExec,
+});
+
+addCmd({
+  name: "+condition",
+  pattern: /^\+condition(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+condition [<player>]  -- View or modify active Conditions and Tilts.
+
+Switches:
+  /add <key>[/<note>] [for <player>]   Apply a Condition or Tilt.
+  /remove <key> [for <player>]         Remove without awarding Beats.
+  /resolve <key> [for <player>]        Resolve and award the catalog Beats.
+  /list                                Show the catalog.
+
+Cross-player edits require canEdit (builder+).
+
+Examples:
+  +condition                         View your own Conditions.
+  +condition Marcus                  View Marcus's Conditions.
+  +condition/add shaken              Apply Shaken to yourself.
+  +condition/add shaken/Spilled mead Apply Shaken with a note.
+  +condition/resolve shaken          Resolve Shaken and gain 1 Beat.
+  +condition/remove shaken Marcus    Correction: remove without Beats.
+  +condition/list                    Show every catalog entry.`,
+  exec: conditionExec,
+});
+
+addCmd({
+  name: "+aspiration",
+  pattern: /^\+aspiration(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+aspiration [<player>]  -- View or modify active Aspirations (max 3).
+
+Switches:
+  /add <text> [for <player>]        Add a short-term Aspiration.
+  /add/long <text> [for <player>]   Add a long-term Aspiration.
+  /remove <#> [for <player>]        Remove the Aspiration at slot #.
+  /fulfill <#> [for <player>]       Fulfill and gain 1 Beat.
+
+Cross-player edits require canEdit (builder+).
+
+Examples:
+  +aspiration                          View your own Aspirations.
+  +aspiration Marcus                   View Marcus's Aspirations.
+  +aspiration/add Find the killer      Add a short-term Aspiration.
+  +aspiration/add/long Become Prince   Add a long-term Aspiration.
+  +aspiration/remove 2                 Remove slot 2 (no Beat).
+  +aspiration/fulfill 1                Fulfill slot 1 and gain 1 Beat.`,
+  exec: aspirationExec,
 });
 
 addCmd({

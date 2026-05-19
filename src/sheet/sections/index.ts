@@ -10,6 +10,7 @@ import { meritsSection } from "./merits.ts";
 import { specialtiesSection } from "./specialties.ts";
 import { powersSection } from "./powers.ts";
 import { beatsXpSection } from "./beats-xp.ts";
+import { conditionsAspirationsSection } from "./conditions-aspirations.ts";
 
 export type { SheetSection, SheetContext } from "./types.ts";
 
@@ -23,6 +24,7 @@ export {
   specialtiesSection,
   powersSection,
   beatsXpSection,
+  conditionsAspirationsSection,
 };
 
 /** Default render order. Future subsystems append their own sections here. */
@@ -36,4 +38,5 @@ export const defaultSections: SheetSection[] = [
   specialtiesSection,
   powersSection,
   beatsXpSection,
+  conditionsAspirationsSection,
 ];
