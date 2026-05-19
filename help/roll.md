@@ -55,6 +55,8 @@ Morality trait, and the active template's valid Powers (e.g. `vigor`,
   - Chance dice ignore /rote, /9again, /8again.
 - **Exceptional success** — 5 or more successes. Triggers the *Inspired*
   condition (or template-specific equivalent).
+- **Wound penalty** — Applied automatically based on Health damage (see
+  `help health`).
 
 ## Untrained penalties
 

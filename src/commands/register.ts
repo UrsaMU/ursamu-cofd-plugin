@@ -5,6 +5,7 @@ import { addCmd, type IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import { sheetExec, sheetSetExec } from "./sheet.ts";
 import { rollExec } from "./roll.ts";
 import { cgExec } from "./chargen.ts";
+import { healthExec } from "./health.ts";
 
 addCmd({
   name: "+sheet",
@@ -47,6 +48,34 @@ Examples:
   +roll/8again Wits+Composure
   +roll/wp/rote/9again Stamina+Athletics`,
   exec: rollExec
+});
+
+addCmd({
+  name: "+health",
+  pattern: /^\+health(?:\/([a-z\-]+\d*))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+health [<player>]  — View or modify a character's Health track.
+
+Switches:
+  /bash[<n>]       Apply N bashing damage (default 1).
+  /lethal[<n>]     Apply N lethal damage.
+  /agg[<n>]        Apply N aggravated damage.
+  /heal[<n>]       Heal N damage, heaviest first.
+  /heal-bash[<n>]  Heal N bashing damage only.
+  /heal-lethal[<n>] Heal N lethal damage only.
+  /heal-agg[<n>]   Heal N aggravated damage only.
+
+Cross-player apply/heal requires canEdit (builder+).
+
+Examples:
+  +health                       View your Health track.
+  +health Marcus                View Marcus's Health track.
+  +health/bash                  Apply 1 bashing to yourself.
+  +health/lethal3 Marcus        Apply 3 lethal to Marcus (builder+).
+  +health/heal2 Marcus          Heal 2 (heaviest first) on Marcus.
+  +health/heal-bash5            Heal 5 bashing on yourself.`,
+  exec: healthExec,
 });
 
 addCmd({

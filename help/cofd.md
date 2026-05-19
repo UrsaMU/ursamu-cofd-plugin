@@ -8,6 +8,7 @@ and a CoFD 2e dice roller for UrsaMU.
 - `help cg`     — Interactive character generation
 - `help sheet`  — View and edit character sheets
 - `help roll`   — D10 dice rolls with 10/9/8-again and rote actions
+- `help health` — Damage track, wound penalty, healing
 
 ## Quick start
 

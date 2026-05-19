@@ -9,6 +9,7 @@ import {
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";
+import { healthMax, woundPenalty } from "../health/index.ts";
 
 export interface ParsedRoll {
   pool: number;
@@ -160,6 +161,16 @@ export function parseRollExpression(expr: string, sheet: CofdSheet): ParsedRoll 
 
   if (terms.length === 0) {
     return { pool: 0, terms: [], appliedSpecialties: [], untrainedPenaltyApplied: 0, error: "Could not parse any traits in roll expression." };
+  }
+
+  // Apply wound penalty automatically (skipped on raw-pool rolls — handled by
+  // the earlier `/^[+-]?\d+$/` branch which returns early).
+  if (sheet.health) {
+    const wp = woundPenalty(sheet.health, healthMax(sheet));
+    if (wp !== 0) {
+      pool += wp;
+      terms.push(`Wound(${wp})`);
+    }
   }
 
   return {
