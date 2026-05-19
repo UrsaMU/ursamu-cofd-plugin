@@ -182,6 +182,57 @@ records with their own lifecycle (combat encounters, scene logs, etc.).
 
 ---
 
+## Help file format
+
+`help/*.md` files render through a MUSH client, not a documentation site.
+Use plain-text only — markdown decorations (`#` headers, ` ``` ` fences,
+markdown tables) appear literally to the player and look broken.
+
+Mirror the inline `help:` text from `addCmd`. Each topic file has:
+
+```
++cmd  -- One-sentence purpose. Wrap at ~78 columns.
+
+Syntax:
+  +cmd <required-arg>            One-line description.
+  +cmd/switch [<optional-arg>]   What the switch does.
+
+Switches:
+  /switch     What it does.
+  /other      What it does.
+
+Permissions:
+  View           connected.
+  Edit own       connected.
+  Edit other     connected + canEdit (builder+).
+
+Mechanics:        (optional, only when rules need explanation)
+  Plain text rules paragraph.
+  Plain text table:
+    Column One       Column Two
+    -------------    -----------
+    value            value
+
+Examples:
+  +cmd arg                    Comment.
+  +cmd/switch arg             Comment.
+
+See also: topic, topic, topic
+```
+
+Rules:
+- No `#` / `##` headers. Section labels end in `:` and are flush-left.
+- No code fences. Indent example/syntax blocks two spaces.
+- No markdown tables. Use aligned plain text with dashed separators.
+- No bullet `-` markers in body text. Use indented lines or short rows.
+- No emojis.
+- One blank line between sections.
+- The first line is `+cmd  --` followed by the one-sentence purpose. This
+  matches the first line of the inline `help:` text in the addCmd block,
+  so the two stay in sync.
+
+---
+
 ## Test boilerplate
 
 ```typescript
