@@ -1,0 +1,33 @@
+// Default ordered list of sheet section renderers.
+
+import type { SheetSection } from "./types.ts";
+import { headerSection } from "./header.ts";
+import { attributesSection } from "./attributes.ts";
+import { skillsSection } from "./skills.ts";
+import { advantagesSection } from "./advantages.ts";
+import { meritsSection } from "./merits.ts";
+import { specialtiesSection } from "./specialties.ts";
+import { powersSection } from "./powers.ts";
+
+export type { SheetSection, SheetContext } from "./types.ts";
+
+export {
+  headerSection,
+  attributesSection,
+  skillsSection,
+  advantagesSection,
+  meritsSection,
+  specialtiesSection,
+  powersSection,
+};
+
+/** Default render order. Future subsystems append their own sections here. */
+export const defaultSections: SheetSection[] = [
+  headerSection,
+  attributesSection,
+  skillsSection,
+  advantagesSection,
+  meritsSection,
+  specialtiesSection,
+  powersSection,
+];
