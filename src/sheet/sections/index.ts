@@ -9,6 +9,7 @@ import { healthSection } from "./health.ts";
 import { meritsSection } from "./merits.ts";
 import { specialtiesSection } from "./specialties.ts";
 import { powersSection } from "./powers.ts";
+import { beatsXpSection } from "./beats-xp.ts";
 
 export type { SheetSection, SheetContext } from "./types.ts";
 
@@ -21,6 +22,7 @@ export {
   meritsSection,
   specialtiesSection,
   powersSection,
+  beatsXpSection,
 };
 
 /** Default render order. Future subsystems append their own sections here. */
@@ -33,4 +35,5 @@ export const defaultSections: SheetSection[] = [
   meritsSection,
   specialtiesSection,
   powersSection,
+  beatsXpSection,
 ];

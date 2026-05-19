@@ -9,6 +9,8 @@ and a CoFD 2e dice roller for UrsaMU.
 - `help sheet`  — View and edit character sheets
 - `help roll`   — D10 dice rolls with 10/9/8-again and rote actions
 - `help health` — Damage track, wound penalty, healing
+- `help beat`   — Award and subtract Beats; 5:1 conversion to Experience
+- `help xp`     — View pools, spend XP to raise traits, cost table
 
 ## Quick start
 
