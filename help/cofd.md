@@ -13,6 +13,8 @@ and a CoFD 2e dice roller for UrsaMU.
 - `help xp`     — View pools, spend XP to raise traits, cost table
 - `help condition`  — Apply, remove, and resolve Conditions and Tilts
 - `help aspiration` — Add, remove, and fulfill Aspirations (max 3)
+- `help vitae`      — View, spend, and gain Vitae (vampire-only)
+- `help touchstone` — Set Mask and Dirge Touchstones (vampire-only)
 
 ## Quick start
 

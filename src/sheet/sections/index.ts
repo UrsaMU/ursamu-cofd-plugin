@@ -9,6 +9,7 @@ import { healthSection } from "./health.ts";
 import { meritsSection } from "./merits.ts";
 import { specialtiesSection } from "./specialties.ts";
 import { powersSection } from "./powers.ts";
+import { vampireSection } from "./vampire.ts";
 import { beatsXpSection } from "./beats-xp.ts";
 import { conditionsAspirationsSection } from "./conditions-aspirations.ts";
 
@@ -23,6 +24,7 @@ export {
   meritsSection,
   specialtiesSection,
   powersSection,
+  vampireSection,
   beatsXpSection,
   conditionsAspirationsSection,
 };
@@ -37,6 +39,7 @@ export const defaultSections: SheetSection[] = [
   meritsSection,
   specialtiesSection,
   powersSection,
+  vampireSection,
   beatsXpSection,
   conditionsAspirationsSection,
 ];

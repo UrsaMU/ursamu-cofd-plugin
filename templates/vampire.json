@@ -11,11 +11,220 @@
     "celerity",
     "dominate",
     "majesty",
+    "nightmare",
     "obfuscate",
+    "praestantia",
+    "protean",
     "resilience",
     "vigor",
     "cruac",
     "theban sorcery"
   ],
-  "energyMaxFormulaType": "standard"
+  "energyMaxFormulaType": "standard",
+  "banes": {
+    "daeva": {
+      "name": "The Wanton Curse",
+      "description": "Cannot spend Willpower to resist a temptation tied to their Mask/Dirge Vice; obsessive desire takes over."
+    },
+    "gangrel": {
+      "name": "The Savage Curse",
+      "description": "Lose 1 die from all Mental and Social pools while frenzying or when failing to resist frenzy."
+    },
+    "mekhet": {
+      "name": "The Shadow Curse",
+      "description": "Suffer one extra point of aggravated damage from sunlight and fire; supernatural senses gain +2 dice to detect them."
+    },
+    "nosferatu": {
+      "name": "The Lonely Curse",
+      "description": "Inflict the Bestial Condition by mere presence; cannot take 10-again on Social rolls to make others comfortable."
+    },
+    "ventrue": {
+      "name": "The Tyrant's Curse",
+      "description": "Each story, suffer one new persistent Condition reflecting cracks in the mind from feeding on power."
+    }
+  },
+  "disciplines": {
+    "animalism": {
+      "name": "Animalism",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Manipulation + Animal Ken + Animalism",
+      "levels": [
+        { "dot": 1, "name": "Feral Whispers", "summary": "Reflexively commune with animals." },
+        { "dot": 2, "name": "Obedience", "summary": "Command an animal to obey a single complex order." },
+        { "dot": 3, "name": "Call of the Hunt", "summary": "Summon nearby animals to your aid." },
+        { "dot": 4, "name": "Sense the Beast", "summary": "Read the Beasts of others; gauge supernatural nature." },
+        { "dot": 5, "name": "Punish the Lash of Sin", "summary": "Drive a target's Beast against them at the throat of their soul." }
+      ]
+    },
+    "auspex": {
+      "name": "Auspex",
+      "signature": true,
+      "vitaeBaseCost": 0,
+      "dicePool": "Wits + Empathy + Auspex",
+      "levels": [
+        { "dot": 1, "name": "Beast's Hackles", "summary": "Reflexive supernatural intuition; danger sense." },
+        { "dot": 2, "name": "Uncanny Perception", "summary": "Read auras and emotional state." },
+        { "dot": 3, "name": "The Spirit's Touch", "summary": "Read the history of a touched object." },
+        { "dot": 4, "name": "Lay Open the Mind", "summary": "Read surface thoughts of a target." },
+        { "dot": 5, "name": "Twilight Projection", "summary": "Project your senses or astral form across distance." }
+      ]
+    },
+    "celerity": {
+      "name": "Celerity",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Flat bonus",
+      "levels": [
+        { "dot": 1, "name": "Celerity 1", "summary": "+1 Defense and Initiative; ignite for the scene." },
+        { "dot": 2, "name": "Celerity 2", "summary": "+2 Defense and Initiative." },
+        { "dot": 3, "name": "Celerity 3", "summary": "+3 Defense and Initiative; extra Move action." },
+        { "dot": 4, "name": "Celerity 4", "summary": "+4 Defense and Initiative." },
+        { "dot": 5, "name": "Celerity 5", "summary": "+5 Defense and Initiative; preternatural speed." }
+      ]
+    },
+    "dominate": {
+      "name": "Dominate",
+      "signature": true,
+      "vitaeBaseCost": 0,
+      "dicePool": "Intelligence + Expression + Dominate vs Resolve + BP",
+      "levels": [
+        { "dot": 1, "name": "Mesmerize", "summary": "Issue a simple command obeyed without thought." },
+        { "dot": 2, "name": "Iron Edict", "summary": "Lay a standing command that endures until dawn." },
+        { "dot": 3, "name": "Entombed Command", "summary": "Implant a post-hypnotic command triggered by a stimulus." },
+        { "dot": 4, "name": "The Forgetful Mind", "summary": "Erase or rewrite memories." },
+        { "dot": 5, "name": "Possession", "summary": "Take direct control of a target's body." }
+      ]
+    },
+    "majesty": {
+      "name": "Majesty",
+      "signature": true,
+      "vitaeBaseCost": 0,
+      "dicePool": "Presence + Expression + Majesty vs Composure + BP",
+      "levels": [
+        { "dot": 1, "name": "Awe", "summary": "Force admiration and benefit of the doubt." },
+        { "dot": 2, "name": "Confidant", "summary": "Compel intimate disclosure." },
+        { "dot": 3, "name": "Green Eyes", "summary": "Inflict envy or jealousy on a witness." },
+        { "dot": 4, "name": "Loyalty", "summary": "Sway a target to defend you as one of their own." },
+        { "dot": 5, "name": "Idol", "summary": "Become the focus of a crowd as a single will." }
+      ]
+    },
+    "nightmare": {
+      "name": "Nightmare",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Presence + Intimidation + Nightmare vs Resolve + BP",
+      "levels": [
+        { "dot": 1, "name": "The Face of Fear", "summary": "Become the target's worst nightmare for an instant." },
+        { "dot": 2, "name": "Dread Reputation", "summary": "Amplify rumors about you into shaking dread." },
+        { "dot": 3, "name": "Eyes of the Beast", "summary": "Force a victim to see the Beast staring back." },
+        { "dot": 4, "name": "Mortal Fear", "summary": "Pin a target with paralyzing terror." },
+        { "dot": 5, "name": "The Cackle", "summary": "Broadcast nightmare to all who can hear you." }
+      ]
+    },
+    "obfuscate": {
+      "name": "Obfuscate",
+      "signature": true,
+      "vitaeBaseCost": 0,
+      "dicePool": "Wits + Stealth + Obfuscate",
+      "levels": [
+        { "dot": 1, "name": "Touch of Shadow", "summary": "Slip out of memory and notice." },
+        { "dot": 2, "name": "Cloak of Night", "summary": "Become invisible while still." },
+        { "dot": 3, "name": "Familiar Stranger", "summary": "Wear the face of a person the target knows." },
+        { "dot": 4, "name": "Oubliette", "summary": "Erase yourself from a target's memory of the scene." },
+        { "dot": 5, "name": "The Madness of Crowds", "summary": "Hide in plain sight in a crowd; the crowd protects you." }
+      ]
+    },
+    "praestantia": {
+      "name": "Praestantia",
+      "signature": false,
+      "vitaeBaseCost": 1,
+      "dicePool": "Flat bonus",
+      "levels": [
+        { "dot": 1, "name": "Praestantia 1", "summary": "+1 Dexterity for the scene; +1 Dex-skill cap." },
+        { "dot": 2, "name": "Praestantia 2", "summary": "+2 Dexterity for the scene." },
+        { "dot": 3, "name": "Praestantia 3", "summary": "+3 Dexterity for the scene." },
+        { "dot": 4, "name": "Praestantia 4", "summary": "+4 Dexterity for the scene." },
+        { "dot": 5, "name": "Praestantia 5", "summary": "+5 Dexterity for the scene." }
+      ]
+    },
+    "protean": {
+      "name": "Protean",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Stamina + Survival + Protean",
+      "levels": [
+        { "dot": 1, "name": "The Beast Unleashed", "summary": "Reflexive bestial wakefulness; +2 dice to physical resistance." },
+        { "dot": 2, "name": "Claws of the Wild", "summary": "Grow claws that inflict lethal damage." },
+        { "dot": 3, "name": "Unmarked Grave", "summary": "Sink into and merge with raw earth." },
+        { "dot": 4, "name": "Aspect of the Predator", "summary": "Take an animal form." },
+        { "dot": 5, "name": "Body of Spirit", "summary": "Discorporate into mist or shadow." }
+      ]
+    },
+    "resilience": {
+      "name": "Resilience",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Flat bonus",
+      "levels": [
+        { "dot": 1, "name": "Resilience 1", "summary": "+1 Stamina for the scene." },
+        { "dot": 2, "name": "Resilience 2", "summary": "+2 Stamina for the scene." },
+        { "dot": 3, "name": "Resilience 3", "summary": "+3 Stamina; downgrade incoming lethal to bashing." },
+        { "dot": 4, "name": "Resilience 4", "summary": "+4 Stamina." },
+        { "dot": 5, "name": "Resilience 5", "summary": "+5 Stamina; downgrade aggravated to lethal." }
+      ]
+    },
+    "vigor": {
+      "name": "Vigor",
+      "signature": true,
+      "vitaeBaseCost": 1,
+      "dicePool": "Flat bonus",
+      "levels": [
+        { "dot": 1, "name": "Vigor 1", "summary": "+1 Strength for the scene." },
+        { "dot": 2, "name": "Vigor 2", "summary": "+2 Strength for the scene." },
+        { "dot": 3, "name": "Vigor 3", "summary": "+3 Strength for the scene." },
+        { "dot": 4, "name": "Vigor 4", "summary": "+4 Strength for the scene." },
+        { "dot": 5, "name": "Vigor 5", "summary": "+5 Strength for the scene." }
+      ]
+    },
+    "cruac": {
+      "name": "Cruac",
+      "signature": false,
+      "vitaeBaseCost": 1,
+      "dicePool": "Stamina + Occult + Cruac",
+      "levels": [
+        { "dot": 1, "name": "Pangs of Proserpina", "summary": "Inflict the pain of hunger on a target." },
+        { "dot": 2, "name": "Blood Scourge", "summary": "Animate a whip of one's own blood." },
+        { "dot": 3, "name": "Curse of Aphrodite", "summary": "Bind a victim with adoration." },
+        { "dot": 4, "name": "Touch of the Morrigan", "summary": "Inflict spreading wounds at range." },
+        { "dot": 5, "name": "Theft of Vitae", "summary": "Drain Vitae across distance." }
+      ]
+    },
+    "theban sorcery": {
+      "name": "Theban Sorcery",
+      "signature": false,
+      "vitaeBaseCost": 0,
+      "dicePool": "Stamina + Academics + Theban Sorcery",
+      "levels": [
+        { "dot": 1, "name": "Vitae Reliquary", "summary": "Sanctify a vessel to store Vitae as miracle." },
+        { "dot": 2, "name": "Apple of Eden", "summary": "Create temptation that mortals cannot resist." },
+        { "dot": 3, "name": "Trials of Job", "summary": "Heap supernatural misfortune on a sinner." },
+        { "dot": 4, "name": "Stigmata", "summary": "Inflict (or bear) holy wounds." },
+        { "dot": 5, "name": "Damnation", "summary": "Cast a soul toward final death and judgment." }
+      ]
+    }
+  },
+  "bloodPotency": [
+    { "bp": 0,  "maxVitae": 10, "maxPerTurn": 1,  "minHumanity": 0, "bloodRequired": "Animal, human, or vampire blood (effectively human BP)." },
+    { "bp": 1,  "maxVitae": 10, "maxPerTurn": 1,  "minHumanity": 0, "bloodRequired": "Animal, human, or vampire blood." },
+    { "bp": 2,  "maxVitae": 11, "maxPerTurn": 2,  "minHumanity": 0, "bloodRequired": "Human or vampire blood (animal no longer slakes)." },
+    { "bp": 3,  "maxVitae": 12, "maxPerTurn": 3,  "minHumanity": 0, "bloodRequired": "Human or vampire blood." },
+    { "bp": 4,  "maxVitae": 13, "maxPerTurn": 4,  "minHumanity": 0, "bloodRequired": "Human or vampire blood." },
+    { "bp": 5,  "maxVitae": 14, "maxPerTurn": 5,  "minHumanity": 7, "bloodRequired": "Human blood losing efficiency; Kindred vitae slakes more." },
+    { "bp": 6,  "maxVitae": 15, "maxPerTurn": 6,  "minHumanity": 6, "bloodRequired": "Humans of strong Vice/Virtue, or Kindred." },
+    { "bp": 7,  "maxVitae": 20, "maxPerTurn": 7,  "minHumanity": 5, "bloodRequired": "Vampire vitae near-required; mortal blood barely satisfies." },
+    { "bp": 8,  "maxVitae": 30, "maxPerTurn": 8,  "minHumanity": 4, "bloodRequired": "Vampire preferred; must hunt Kindred or supernaturals." },
+    { "bp": 9,  "maxVitae": 50, "maxPerTurn": 9,  "minHumanity": 3, "bloodRequired": "Almost exclusively Kindred vitae." },
+    { "bp": 10, "maxVitae": 75, "maxPerTurn": 10, "minHumanity": 2, "bloodRequired": "Only the eldest or supernatural blood satisfies." }
+  ]
 }

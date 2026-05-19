@@ -10,6 +10,8 @@ import { beatExec } from "./beat.ts";
 import { xpExec } from "./xp.ts";
 import { conditionExec } from "./condition.ts";
 import { aspirationExec } from "./aspiration.ts";
+import { vitaeExec } from "./vitae.ts";
+import { touchstoneExec } from "./touchstone.ts";
 
 addCmd({
   name: "+sheet",
@@ -177,6 +179,54 @@ Examples:
   +aspiration/remove 2                 Remove slot 2 (no Beat).
   +aspiration/fulfill 1                Fulfill slot 1 and gain 1 Beat.`,
   exec: aspirationExec,
+});
+
+addCmd({
+  name: "+vitae",
+  pattern: /^\+vitae(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+vitae [<player>]  -- View or modify a vampire's Vitae pool.
+
+Switches:
+  /spend [<n>] [for <player>]    Spend N Vitae (default 1).
+  /gain [<n>] [for <player>]     Gain N Vitae (capped at BP max).
+  /blush [for <player>]          Spend 1 Vitae for Blush of Life.
+  /boost <attr> [for <player>]   Spend 1 Vitae to boost a Physical Attribute.
+
+Cross-player edits require canEdit (builder+). Only vampires have Vitae.
+
+Examples:
+  +vitae                         View your Vitae pool.
+  +vitae/spend                   Spend 1 Vitae.
+  +vitae/spend 3                 Spend 3 Vitae.
+  +vitae/gain 2 for Marcus       Add 2 Vitae to Marcus (builder+).
+  +vitae/blush                   Blush of Life: appear human for one hour.
+  +vitae/boost strength          +2 Strength for the scene.`,
+  exec: vitaeExec,
+});
+
+addCmd({
+  name: "+touchstone",
+  pattern: /^\+touchstone(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+touchstone [<player>]  -- View or set Mask and Dirge Touchstones (vampire only).
+
+Switches:
+  /mask <name> [for <player>]    Set the Mask (public-persona) Touchstone.
+  /dirge <name> [for <player>]   Set the Dirge (predatory) Touchstone.
+  /clear-mask [for <player>]     Clear the Mask Touchstone.
+  /clear-dirge [for <player>]    Clear the Dirge Touchstone.
+
+Cross-player edits require canEdit (builder+).
+
+Examples:
+  +touchstone                          View your Touchstones.
+  +touchstone/mask Lia Martinez        Set your Mask anchor.
+  +touchstone/dirge The Hunger I Hide  Set your Dirge anchor.
+  +touchstone/clear-mask               Clear your Mask (Humanity risk).`,
+  exec: touchstoneExec,
 });
 
 addCmd({
