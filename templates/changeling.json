@@ -1,0 +1,17 @@
+{
+  "key": "changeling",
+  "name": "Changeling: The Lost",
+  "moralityName": "Clarity",
+  "powerStatName": "Wyrd",
+  "energyName": "Glamour",
+  "customFields": ["seeming", "kith", "court"],
+  "validPowers": [
+    "spring",
+    "summer",
+    "autumn",
+    "winter",
+    "royal",
+    "eternal"
+  ],
+  "energyMaxFormulaType": "standard"
+}
