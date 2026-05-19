@@ -1,50 +1,144 @@
 # Chronicles of Darkness (CoFD) UrsaMU Plugin
 
-A highly modular, completely file-driven supernatural template plugin for **UrsaMU**, supporting a fully guided interactive character generation experience (`+cg`), dynamic ASCII character sheet layouts (`+sheet`), and standard Chronicles of Darkness d10 10-Again rolling mechanics (`+roll`).
+Chronicles of Darkness 2e for **UrsaMU**: guided character generation,
+dynamic ASCII sheets, a CoFD-compliant d10 roller, Health track, Beat/XP
+economy, Conditions and Aspirations, and a Vampire: The Requiem overlay.
+GMCCG-inspired module layout, file-driven supernatural templates.
 
 ---
 
-## 🚀 Key Features
+## Features
 
-*   **File-Driven Supernatural Templates**: Add any supernatural template (Mortal, Vampire, Werewolf, Mage, Changeling, etc.) just by adding a new JSON file to the `templates/` directory on startup. No engine changes required!
-*   **6-Stage Guided Character Generation (`+cg`)**: Walks new players step-by-step through setting core identity, choosing supernatural templates, filling template specifics, distributing category-invariant points (Attributes `{5, 4, 3}`, Skills `{11, 9, 7}`), and allocating starting supernatural powers.
-*   **Dynamic ASCII Sheet Engine**: Beautiful, exactly 78-character wide retro ASCII display tailored automatically to the player's active supernatural template (adapting section headers, custom attributes, power traits, and energy levels).
-*   **10-Again Roll Parser**: Fully compliant Chronicles of Darkness d10 roller resolving untrained skill penalties (-3 Mental, -1 Physical/Social), specialty bonuses (+1 die), willpower spending (+3 dice), and chance die rules for <= 0 pools.
-*   **Robust Security & Integrity**: Blocks unapproved sheet views or edits for players mid-character creation.
+- **File-driven supernatural templates.** Add Mortal, Vampire, Werewolf,
+  Mage, Changeling (or your own) by dropping a JSON file in `templates/`.
+- **Guided character generation (`+cg`).** Six stages with point-budget
+  validation at every step.
+- **Dynamic ASCII sheets (`+sheet`).** 78-column wide, template-aware,
+  composed of independently-renderable sections.
+- **CoFD-compliant d10 roller (`+roll`).** 10/9/8-again, rote actions,
+  Willpower spend, untrained-skill penalties, specialty bonuses, chance
+  dice with Dramatic Failure.
+- **Health track (`+health`).** Bashing/lethal/aggravated cascade,
+  automatic wound penalty subtracted from every `+roll` pool.
+- **Beat / XP economy (`+beat`, `+xp`).** Five Beats roll over into one
+  Experience; separate Arcane pool for supernatural-related events;
+  cost table loaded from `resources/xp_costs.json`.
+- **Conditions and Aspirations (`+condition`, `+aspiration`).** 36 core
+  Conditions plus 21 Tilts catalogued in `resources/conditions.json`.
+  Resolving a Condition or fulfilling an Aspiration awards Beats
+  automatically.
+- **Vampire: The Requiem overlay.** Five Clans with Banes, five Covenants,
+  13 Disciplines, full Blood Potency table, Mask/Dirge Touchstones,
+  Vitae spending (`+vitae`), Touchstone tracking (`+touchstone`).
 
 ---
 
-## 🛠️ CLI Commands
+## Commands
 
-| Command | Syntax | Lock | Description |
-|---------|--------|------|-------------|
-| `+cg` | `+cg` | `connected` | Display guided chargen instructions, progress status, and current choices. |
-| `+cg/set` | `+cg/set <trait>=<value>` | `connected` | Distribute points or choose options in the active creation stage. |
-| `+cg/back` | `+cg/back` | `connected` | Move back one creation stage to adjust past decisions. |
-| `+cg/reset` | `+cg/reset` | `connected` | Clear current character generation state and start over at Stage 1 as a Mortal. |
-| `+cg/submit` | `+cg/submit` | `connected` | Validate point math and choices. If valid, advance to the next stage (or finalize sheet). |
-| `+sheet` | `+sheet [<player>]` | `connected` | View approved dynamic ASCII character sheet of target. Blocked if unapproved. |
-| `+sheet/set`| `+sheet/set <stat>=<value>` | `connected` | Manually edit sheet attributes, skills, or add specialties (Builder/Admin, or approved player self-edit). |
-| `+roll` | `+roll <expression>[+<modifier>][/willpower]` | `connected` | Execute standard CoFD D10 dice rolls with modifiers, specialties, and 10-again rules. |
+```
++cg                       View chargen stage and progress.
++cg/set <trait>=<value>   Distribute chargen points.
++cg/back, /reset, /submit Navigate stages.
 
----
++sheet [<player>]                       View a character sheet.
++sheet/set <trait>=<value>              Edit your own sheet.
++sheet/set <player>/<trait>=<value>     Builder+: edit another sheet.
++sheet/set specialty/<skill>=<name>     Add a skill specialty.
 
-## 🛠️ Setup & Development
++roll <expression>                      Roll a CoFD dice pool.
++roll/wp/rote/9again/8again ...         Combine switches with / or ,.
 
-The plugin is designed for the **UrsaMU** framework using **Deno**.
++health [<player>]                      View the Health track.
++health/bash, /lethal, /agg [N]         Apply damage.
++health/heal, /heal-bash, /heal-lethal, /heal-agg [N]   Heal damage.
 
-### File Structure
-*   `templates/` - Supernatural JSON configuration files.
-*   `templates.ts` - Startup scanning and loading of template assets.
-*   `cofd.ts` - Sheet models, ASCII sheet formatting layout, and roll parsing engine.
-*   `cg.ts` - 6-Stage Character Generation engine and point-spent math validation.
-*   `commands.ts` - Game command command-parsers and sheet security boundaries.
-*   `tests/` - Complete unit and BDD integration test suite.
++beat add[/arcane] [<player>] [= <reason>]   Award 1 Beat.
++beat sub[/arcane] [<player>]                Subtract 1 Beat (correction).
 
-### Running Tests
-Execute the comprehensive test suite with:
-```bash
-deno test -A --unstable-kv tests/
++xp [<player>]                          View XP pools.
++xp/spend <trait>=<dots> [for <player>] Spend XP to raise a trait.
++xp/list                                Show the XP cost table.
+
++condition [<player>]                   View active conditions.
++condition/add <key>[/<note>] [for <player>]
++condition/remove <key> [for <player>]      Correction, no Beats.
++condition/resolve <key> [for <player>]     Awards catalog Beats.
++condition/list                             Print the catalog.
+
++aspiration [<player>]                  View active aspirations.
++aspiration/add[/long] <text> [for <player>]
++aspiration/remove <#> [for <player>]
++aspiration/fulfill <#> [for <player>]      Awards 1 Beat.
+
++vitae [<player>]                       View Vitae + per-turn cap.
++vitae/spend [N] [for <player>]
++vitae/gain [N] [for <player>]
++vitae/blush [for <player>]             1 Vitae, Blush of Life.
++vitae/boost <attr> [for <player>]      1 Vitae, +2 to a Physical Attribute.
+
++touchstone [<player>]                  View Mask and Dirge anchors.
++touchstone/mask <name> [for <player>]
++touchstone/dirge <name> [for <player>]
++touchstone/clear-mask, /clear-dirge [for <player>]
 ```
 
-All commands, mechanics, roll calculations, and 6-stage guided creation states are 100% covered and verified.
+Full per-command help: `help cofd`, `help cg`, `help sheet`, `help roll`,
+`help health`, `help beat`, `help xp`, `help condition`,
+`help aspiration`, `help vitae`, `help touchstone`.
+
+---
+
+## Project layout
+
+```
+ursamu-cofd-plugin/
+  index.ts              IPlugin entry (init/remove + dependency declaration)
+  commands.ts           Thin shim, side-effect import of src/commands/register.ts
+  cofd.ts, cg.ts,       Thin re-export shims for test backward-compat
+    templates.ts
+  routes.ts             REST handler for /api/v1/cofd
+  src/
+    dictionary/         Typed re-exports of resources/*.json
+    support/            Format helpers + prereq evaluator
+    stats/              CofdSheet model, validate, setter
+    roller/             parse, execute (wound penalty hook)
+    sheet/              render + sections/ composable blocks
+    chargen/            state, instructions, validate
+    gamelines/          templates loader + vampire overlay
+    health/             pure track math + wound penalty
+    xp/                 pure beats/experience math + cost loader
+    subsystems/         conditions, aspirations
+    commands/           one file per command + register.ts (addCmd side effects)
+  resources/            attributes.json, skills.json, merits.json,
+                        conditions.json, xp_costs.json
+  templates/            mortal/vampire/werewolf/mage/changeling JSON
+  help/                 plain-text MUSH help topics
+  docs/                 design specs (vampire, conditions, xp/beats)
+  tests/                Deno unit + BDD tests
+  showcases/            in-process command demos
+  deno.json             tasks + import map
+  ursamu.plugin.json    plugin manifest
+  CLAUDE.md             workspace conventions and game-rule reference
+```
+
+---
+
+## Setup and tests
+
+```bash
+deno task test          # full suite — must stay green
+deno check index.ts     # plugin loads cleanly
+deno task showcase      # interactive command demo
+```
+
+The plugin declares `help >= 1.0.0` as a dependency in
+`ursamu.plugin.json` so the help directory is registered into the
+help-plugin registry automatically.
+
+---
+
+## Inspiration
+
+Layout and module split inspired by Thenomain's
+[GMCCG](https://github.com/thenomain/GMCCG) for TinyMUX, ported to
+UrsaMU's TypeScript / Deno plugin model.
