@@ -1,60 +1,287 @@
-# CLAUDE.md — Chronicles of Darkness (CoFD) Plugin Workspace
+# CLAUDE.md — Chronicles of Darkness (CoFD) Plugin
 
-Workspace instructions for the Chronicles of Darkness UrsaMU plugin development.
+UrsaMU plugin for Chronicles of Darkness 2e. Sheets, chargen, dice.
 
-## 🛠 Command Reference
-*   **Scaffold Commands**: `npx @lhi/ursamu-dev scaffold <name> [--with-routes] [--with-tests]`
-*   **Run Deno Tests**: `deno test -A --reload tests/`
-*   **Advance Stage (Design Confirm)**: `bash ~/.gemini/skills/skills/ursamu-dev/hooks/advance-stage.sh --confirm-design`
-*   **Advance Stage (Audit Pass)**: `bash ~/.gemini/skills/skills/ursamu-dev/hooks/advance-stage.sh --pass-audit`
+## Setup
 
----
+```bash
+npx @lhi/ursamu-dev         # install the dev skill
+ursamu-dev --install-hooks  # block commits that fail the audit
+```
 
-## 📈 Development Workflow (ursamu-dev 6-Stage Cycle)
-We must follow the strict `ursamu-dev` workflow to ensure safety, alignment, and robust design:
-1.  **Stage 0: Design**: Research rules, choose command regex, draft invariants, and publish the AAAK Design Plan block for user approval. Run the `--confirm-design` hook.
-2.  **Stage 1: Generate**: Write code following standard UrsaMU patterns in `/Users/kumakun/github/ursamu-cofd-plugin/index.ts`, `commands.ts`, etc.
-3.  **Stage 2: Audit**: Run the 18-point checklist (privilege checks, injection, `canEdit`, DBO operations).
-4.  **Stage 3: Refine**: Remediate checklist items. Run the `--pass-audit` hook.
-5.  **Stage 4: Test**: Deno test coverage and run `/tdd-audit` exploit testing cycles.
-6.  **Stage 5: Docs**: Update `help/cofd.md` and `README.md`.
+Activate in Claude Code: `/ursamu-dev`. The skill enforces a six-stage
+pipeline (Design → Generate → Audit → Refine → Test → Docs) and knows every
+import path, SDK method, lock level, and security pattern. Use it for every
+feature — no exceptions.
 
 ---
 
-## 🎲 Chronicles of Darkness (CoFD) Core Rules
-### 1. Stats and Traits
-*   **Mental Attributes**: Intelligence, Wits, Resolve
-*   **Physical Attributes**: Strength, Dexterity, Stamina
-*   **Social Attributes**: Presence, Manipulation, Composure
-*   **Mental Skills**: Academics, Computer, Crafts, Investigation, Medicine, Occult, Politics, Science
-*   **Physical Skills**: Athletics, Brawl, Drive, Firearms, Larceny, Stealth, Survival, Weaponry
-*   **Social Skills**: Animal Ken, Empathy, Expression, Intimidation, Persuasion, Socialize, Streetwise, Subterfuge
-*   **Untrained Penalties**: -3 dice penalty for Mental Skills, -1 dice penalty for Physical/Social Skills.
+## Commands
 
-### 2. Rolling Mechanics
-*   **Standard Roll**: Pool = `Attribute + Skill + Modifiers`. Roll D10s.
-*   **Successes**: Roll of `8, 9, or 10` is a success.
-*   **10-Again**: Roll of `10` is a success AND is rerolled (can chain).
-*   **Exceptional Success**: Achieving `5 or more successes`. Triggers a beneficial condition (e.g., Inspired).
-*   **Chance Die**: If the pool drops to `0 or lower`, roll a single **Chance Die**:
-    *   Succeeds *only* on a `10` (no rerolls allowed).
-    *   A roll of `1` is a **Dramatic Failure** (things get worse).
+```bash
+deno task test                       # full suite — must stay green
+deno lint                            # must be clean
+deno check index.ts                  # plugin loads cleanly
+bash ~/.claude/skills/skills/ursamu-dev/hooks/advance-stage.sh --confirm-design
+bash ~/.claude/skills/skills/ursamu-dev/hooks/advance-stage.sh --pass-audit
+```
 
 ---
 
-## 💻 Code Conventions
-### 1. Imports and Scope
-*   Use `jsr:@ursamu/ursamu` for core game APIs (`addCmd`, `registerPluginRoute`, `DBO`, `dbojs`, `gameHooks`).
-*   **Workers (System Scripts)**: Never import `jsr:@ursamu/ursamu` inside system scripts; use the injected `u` SDK object instead.
-*   **Permissions**: Guard database writes or edits using `await u.canEdit(u.me, target)` and `isAdmin` checks where appropriate.
+## Six-stage workflow
 
-### 2. Database Modifications
-*   Always use `u.db.modify(id, op, data)`. The operator `op` **must** be exactly `"$set"`, `"$unset"`, or `"$inc"`.
-*   Character sheets are stored in the player object's `state.cofd` state record to prevent cluttering the root state.
+1. **Stage 0 — Design.** Research rules, choose command regex, draft
+   invariants, publish AAAK Design Plan, get user confirmation, run
+   `--confirm-design`.
+2. **Stage 1 — Generate.** Write code per the confirmed plan using v2.x
+   patterns under `src/<semantic>/`.
+3. **Stage 2 — Audit.** Run the 18-point checklist below.
+4. **Stage 3 — Refine.** Remediate audit findings, run `--pass-audit`.
+5. **Stage 4 — Test.** `deno task test` plus `/tdd-audit` exploit cycles.
+6. **Stage 5 — Docs.** Update `help/*.md` topic files and `README.md`.
 
 ---
 
-## 🎯 Command Invariants
-*   `+sheet [<player>]` (connected): Displays formatted character sheet.
-*   `+sheet/set <stat>=<value>` (connected/builder+): Modifies character stats.
-*   `+roll <stat>[+<skill>][+<modifier>]` (connected): Calculates and executes a CoFD-compliant roll with 10-again, exceptional success, and chance die rules.
+## Structure
+
+```
+ursamu-cofd-plugin/
+├── index.ts              IPlugin — init(), remove(), imports commands.ts
+├── commands.ts           Thin shim — side-effect imports src/commands/register.ts
+├── cofd.ts, cg.ts,       Thin re-export shims for test backward-compat
+│   templates.ts
+├── routes.ts             REST handler for /api/v1/cofd
+├── src/
+│   ├── dictionary/       Typed re-exports of resources/*.json
+│   ├── support/          format helpers, prereq evaluator
+│   ├── stats/            CofdSheet model, validate, setter
+│   ├── roller/           parse, execute
+│   ├── sheet/            render orchestrator + sections/ composable blocks
+│   ├── chargen/          state, instructions, validate
+│   ├── gamelines/        templates loader (one JSON per template)
+│   └── commands/         sheet/roll/chargen + register.ts (addCmd side effects)
+├── resources/            attributes.json, skills.json, merits.json
+├── templates/            mortal/vampire/werewolf/mage/changeling JSON
+├── help/                 per-command topic files (cofd, cg, sheet, roll)
+├── docs/                 design specs (vampire overlay, conditions, xp/beats)
+├── tests/                Deno unit tests
+├── showcases/            in-process command demos
+├── deno.json             tasks + import map
+└── ursamu.plugin.json    plugin manifest (declared deps, version)
+```
+
+---
+
+## Import paths
+
+```typescript
+import { addCmd, DBO, gameHooks, registerPluginRoute } from "@ursamu/ursamu";
+import type { IPlugin, IUrsamuSDK, IDBObj, SessionEvent } from "@ursamu/ursamu";
+import { registerHelpDir } from "@ursamu/help-plugin";
+```
+
+The `@ursamu/help-plugin` alias resolves to a raw GitHub URL in `deno.json`
+because the package is not on JSR yet.
+
+---
+
+## addCmd skeleton
+
+```typescript
+addCmd({
+  name: "+cofd-cmd",
+  pattern: /^\+cofd\-cmd(?:\/(\S+))?\s*(.*)/i,  // args[0]=switch, args[1]=rest
+  lock: "connected",
+  category: "Cofd",
+  help: `+cofd-cmd[/switch] <arg>  — Description.
+
+Examples:
+  +cofd-cmd foo    Does the thing.`,
+  exec: async (u: IUrsamuSDK) => {
+    const sw  = (u.cmd.args[0] ?? "").toLowerCase().trim();
+    const arg = u.util.stripSubs(u.cmd.args[1] ?? "").trim();  // strip codes FIRST
+  },
+});
+```
+
+---
+
+## Plugin lifecycle (index.ts)
+
+```typescript
+import "./commands.ts";  // Phase 1 — addCmd() fires here, NOT in init()
+
+const onLogin = (e: SessionEvent) => { /* named ref — required for remove() */ };
+
+export const plugin: IPlugin = {
+  name: "cofd",
+  version: "1.0.0",
+  description: "One sentence.",
+  dependencies: [{ name: "help", version: ">=1.0.0" }],
+  init:   () => { gameHooks.on("player:login", onLogin); return true; },
+  remove: () => { gameHooks.off("player:login", onLogin); },  // same ref
+};
+
+export default plugin;
+```
+
+Rules:
+- `addCmd()` **never inside `init()`** — must fire at module load.
+- `init()` must return `true`. Returning `false` disables the plugin.
+- Every `.on()` needs a matching `.off()` using the **same named function**.
+- The plugin object is exported as **both** `export const plugin` and
+  `export default plugin` so both old and new loaders find it.
+
+---
+
+## Key SDK calls
+
+```typescript
+const target = await u.util.target(u.me, arg, true);  // true = global search
+if (!target) { u.send("Not found."); return; }
+
+if (!(await u.canEdit(u.me, target))) { u.send("Permission denied."); return; }
+
+await u.db.modify(target.id, "$set",  { "data.field": value });
+await u.db.modify(target.id, "$inc",  { "data.score": 1 });
+await u.db.modify(target.id, "$unset",{ "data.tmp": "" });
+
+u.send("Message.", target.id);  // optional second arg = recipient socket id
+```
+
+---
+
+## Player-inline state pattern
+
+```typescript
+// Reading (always default)
+const ps = (u.me.state.cofd ?? {}) as CofdSheet;
+
+// Writing (always spread to preserve other fields)
+await u.db.modify(u.me.id, "$set", { "state.cofd": { ...ps, field: value } });
+```
+
+Use `state.cofd` for per-player sheet data (the character sheet, chargen
+workspace under `state.cofd_cg`). Use `new DBO("cofd.<collection>")` for
+records with their own lifecycle (combat encounters, scene logs, etc.).
+
+---
+
+## Code conventions
+
+- **Imports.** Use the `@ursamu/ursamu` alias from `deno.json` (not raw
+  `jsr:` URLs). Workers / system scripts use the injected `u` SDK object —
+  never import the package directly.
+- **Permissions.** Guard every cross-player edit with
+  `await u.canEdit(u.me, target)`. Use `isAdmin` for restricted ops.
+- **DB writes.** `u.db.modify(id, op, data)` with op exactly `"$set"`,
+  `"$unset"`, or `"$inc"`. No raw overwrites.
+- **Color codes.** Every `%c*` opens a code; every `%cn` closes. Never leave
+  open codes; they leak into subsequent output lines.
+- **No emojis** in any file (code, help, docs, commit messages).
+
+---
+
+## Test boilerplate
+
+```typescript
+const OPTS = { sanitizeResources: false, sanitizeOps: false };
+
+Deno.test("happy path", OPTS, async () => { /* ... */ });
+// Required: happy path · null target · perm denied · correct DB op · admin guard · stripSubs
+```
+
+Write pure engine/ function tests first — no mocks, catches the most
+regressions. Add a `tests/security/` directory for exploit→fix tests; one
+file per bug found.
+
+---
+
+## Showcase — executes real commands in-process
+
+```bash
+deno task showcase           # interactive menu
+deno task showcase --list    # list available showcases
+deno task showcase <key>     # run one
+```
+
+The runner imports `commands.ts` (firing `addCmd()`), matches each step's
+`cmd` string against the live registry, and calls `cmd.exec(u)` against a
+mock SDK. The output is the actual command output, not a documentation
+render.
+
+Step types:
+
+```json
+{ "sub":    "Heading" }
+{ "note":   "Narrative — not executed." }
+{ "cmd":    "+sheet", "label": "comment", "as": "admin" }
+{ "expect": "substring that must appear in the previous cmd output" }
+{ "reset":  true }
+```
+
+`reset` clears the in-memory DBO store between scenarios.
+
+---
+
+## Audit checklist (Stage 2)
+
+- [ ] `u.util.stripSubs()` on all user strings before DB ops or length checks
+- [ ] `await u.canEdit()` before modifying any object not owned by `u.me`
+- [ ] DB writes use `"$set"` / `"$inc"` / `"$unset"` — never raw overwrite
+- [ ] `u.util.target()` null-checked before use
+- [ ] All `%c*` color codes closed with `%cn`
+- [ ] `gameHooks.on()` in `init()` paired with `gameHooks.off()` in `remove()` (same ref)
+- [ ] DBO collection prefixed: `"cofd.<collection>"`
+- [ ] REST route returns 401 before any work when `userId` is null
+- [ ] `init()` returns `true`
+- [ ] Every `addCmd` has `help:` with syntax line + examples
+- [ ] No emojis in source, help, or docs
+
+---
+
+## Chronicles of Darkness 2e — game-rule reference
+
+### Stats and traits
+
+- **Mental attributes**: Intelligence, Wits, Resolve.
+- **Physical attributes**: Strength, Dexterity, Stamina.
+- **Social attributes**: Presence, Manipulation, Composure.
+- **Mental skills**: Academics, Computer, Crafts, Investigation, Medicine,
+  Occult, Politics, Science.
+- **Physical skills**: Athletics, Brawl, Drive, Firearms, Larceny, Stealth,
+  Survival, Weaponry.
+- **Social skills**: Animal Ken, Empathy, Expression, Intimidation,
+  Persuasion, Socialize, Streetwise, Subterfuge.
+- **Untrained penalties**: -3 on Mental skills, -1 on Physical/Social.
+
+### Roll mechanics
+
+- **Pool** = Attribute + Skill + Modifiers (d10s).
+- **Success** = 8, 9, or 10.
+- **10-again (default)** — 10 counts AND rerolls; chains.
+- **9-again / 8-again** — lower the reroll threshold.
+- **Rote** — reroll every initial failure (1-7) once. Rerolls obey n-again
+  but do not themselves rote.
+- **Exceptional** — 5+ successes; trigger Inspired (or template equivalent).
+- **Chance die** — pool ≤ 0 rolls one d10. Success only on 10. A 1 is a
+  Dramatic Failure. Chance dice ignore rote/9-again/8-again.
+
+### Command invariants
+
+- `+sheet [<player>]` — connected.
+- `+sheet/set <trait>=<value>` — connected; canEdit guard for cross-player.
+- `+sheet/set specialty/<skill>=<name>` — same gate.
+- `+cg`, `+cg/set`, `+cg/back`, `+cg/reset`, `+cg/submit` — connected;
+  self only.
+- `+roll[/wp][/rote][/9again|/8again] <expression>` — connected.
+
+---
+
+## Full API reference
+
+`~/.claude/skills/ursamu-dev/references/api-reference.md` — every type,
+SDK method, event payload, and lock expression. Read it before writing
+any code.
+
+Activate the full dev skill with `/ursamu-dev`.
