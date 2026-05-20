@@ -51,8 +51,8 @@
     { "expect": "Added specialty" },
 
     { "sub": "Clearing a Specialty" },
-    { "note": "Use 'clear' or 'none' as the value to remove all specialties from a skill." },
-    { "cmd": "+sheet/set specialty/investigation=clear", "label": "clear specialties" },
+    { "note": "An empty value clears all specialties on the skill (matches the trait reset convention)." },
+    { "cmd": "+sheet/set specialty/investigation=", "label": "clear specialties" },
     { "expect": "Cleared all specialties" },
 
     { "sub": "Setting a Merit" },

@@ -5,7 +5,7 @@ Syntax:
   +sheet/set <trait>=<value>             Set a trait on your own sheet.
   +sheet/set <player>/<trait>=<v>        Set a trait on another sheet.
   +sheet/set specialty/<skill>=<name>    Add a skill specialty.
-  +sheet/set specialty/<skill>=clear     Remove all specialties.
+  +sheet/set specialty/<skill>=          Remove all specialties.
   +sheet/set <trait>=                    Reset a trait to template default.
 
 Permissions:

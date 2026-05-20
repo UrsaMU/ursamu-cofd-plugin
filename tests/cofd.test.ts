@@ -92,7 +92,7 @@ describe("+sheet/set command", () => {
         name: "Arthur",
         state: { cofd: sheetWithSpec }
       }),
-      args: ["specialty/crafts", "clear"]
+      args: ["specialty/crafts", ""]
     });
 
     await sheetSetExec(uClear);

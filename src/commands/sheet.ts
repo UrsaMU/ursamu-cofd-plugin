@@ -54,10 +54,12 @@ export async function sheetSetExec(u: IUrsamuSDK) {
     rhs = a1;
   }
 
-  if (!lhs || !rhs) {
+  if (!lhs) {
     u.send("Usage: +sheet/set [<player>/]<trait>=<value> (or specialty/<skill>=<name>)");
     return;
   }
+  // Empty rhs is meaningful: it resets a trait to default and clears
+  // all specialties on a skill. Downstream handlers interpret it.
 
   let targetName = "";
   let trait = lhs;
@@ -101,11 +103,6 @@ export async function sheetSetExec(u: IUrsamuSDK) {
     }
 
     const specValue = rhs.trim();
-    if (!specValue) {
-      u.send("Specialty name cannot be empty.");
-      return;
-    }
-
     const sheet = (target.state?.cofd as CofdSheet) || defaultSheet();
     if (!sheet.specialties) {
       sheet.specialties = {};
@@ -114,7 +111,9 @@ export async function sheetSetExec(u: IUrsamuSDK) {
       sheet.specialties[skillName] = [];
     }
 
-    if (specValue.toLowerCase() === "clear" || specValue.toLowerCase() === "none") {
+    if (!specValue) {
+      // Empty value resets the skill's specialty list (matches the trait
+      // reset convention: `+sheet/set athletics=` -> reset Athletics).
       sheet.specialties[skillName] = [];
       u.send(`Cleared all specialties for skill '${skillName}' on ${target.name}'s sheet.`);
     } else {
