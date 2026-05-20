@@ -1,6 +1,14 @@
-// +roll command implementation.
+// +roll command implementation. Output is a single compact line:
+//
+//   ROLL>> Marcus rolls strength+brawl  5d (3 7 8 9 10) -> 2 successes (Success)
+//
+// Variants:
+//   /wp /rote /9again /8again — appear in the "rolls" verb prefix
+//   chance die                 — shows "chance" instead of "Nd"
+//   rote rerolls               — appended as "rote(...)" after the main dice
+//   willpower spend            — "rolls/wp" prefix
 
-import { header, footer, divider, type IUrsamuSDK } from "@ursamu/ursamu";
+import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
 
@@ -15,7 +23,7 @@ export async function rollExec(u: IUrsamuSDK) {
 
   // Multi-switch: split on / or , so users can stack /wp/rote/9again, etc.
   const switches = swRaw
-    ? swRaw.split(/[\/,]/).map(s => s.trim()).filter(Boolean)
+    ? swRaw.split(/[\/,]/).map((s) => s.trim()).filter(Boolean)
     : [];
 
   let wantWp = false;
@@ -43,7 +51,7 @@ export async function rollExec(u: IUrsamuSDK) {
 
   if (wantWp) {
     if (sheet.advantages.willpowerCurrent < 1) {
-      u.send("Error: You do not have any Willpower left to spend!");
+      u.send("Error: You do not have any Willpower left to spend.");
       return;
     }
     sheet.advantages.willpowerCurrent -= 1;
@@ -61,52 +69,43 @@ export async function rollExec(u: IUrsamuSDK) {
   const finalPool = parsed.pool + wpBonus;
   const result = executeRoll(finalPool, { again, rote });
 
-  // Formatting output beautifully
-  const lines: string[] = [];
-  lines.push(await header("C O F D   R O L L"));
+  // Build the switch-suffix on "rolls" — e.g. "rolls/wp/rote".
+  const verbSwitches: string[] = [];
+  if (spentWp) verbSwitches.push("wp");
+  if (result.rote && !result.isChanceDie) verbSwitches.push("rote");
+  if (!result.isChanceDie && result.again !== 10) verbSwitches.push(`${result.again}again`);
+  const verb = verbSwitches.length ? `rolls/${verbSwitches.join("/")}` : "rolls";
 
-  lines.push(`  %chPlayer:%cn      ${u.util.displayName(u.me, u.me)}`);
+  // Dice display: "5d (3 7 8 9 10)" or "chance (1)".
+  const diceList = result.rolls.join(" ");
+  const diceBlock = result.isChanceDie
+    ? `chance (${diceList})`
+    : `${finalPool}d (${diceList})`;
 
-  const displayTerms = [...parsed.terms];
-  if (spentWp) {
-    displayTerms.push("Willpower(+3)");
-  }
-  lines.push(`  %chRoll:%cn        ${displayTerms.join(" + ")}`);
-  lines.push(`  %chDice Pool:%cn   ${result.isChanceDie ? "Chance Die" : `${finalPool} dice`}`);
+  // Optional rote rerolls trailing the dice block.
+  const roteBlock = (result.roteRerolls && result.roteRerolls.length > 0)
+    ? ` rote(${result.roteRerolls.join(" ")})`
+    : "";
 
-  // Show non-default threshold and rote flag for transparency.
-  if (!result.isChanceDie && result.again !== 10) {
-    lines.push(`  %chThreshold:%cn   ${result.again}-again`);
-  }
-  if (!result.isChanceDie && result.rote) {
-    lines.push(`  %chRote:%cn         Yes`);
-  }
-
-  // If chance die was rolled but the user requested options that don't apply,
-  // include a note so they know the options were ignored.
-  if (result.isChanceDie && (rote || again !== 10)) {
-    lines.push(`  %chNote:%cn         Chance die ignores rote/9-again/8-again.`);
-  }
-
-  lines.push(await divider(""));
-
-  lines.push(`  %chDice Rolls:%cn  [${result.rolls.join(", ")}]`);
-  if (result.roteRerolls && result.roteRerolls.length > 0) {
-    lines.push(`  %chRerolls:%cn     [${result.roteRerolls.join(", ")}]`);
-  }
-  lines.push(`  %chSuccesses:%cn   %ch%cy${result.successes}%cn`);
-
-  let outcome = "%ch%cyFAILURE%cn";
+  // Outcome label + color.
+  let outcomeLabel = "Failure";
+  let outcomeColor = "%ch%cx";
   if (result.exceptional) {
-    outcome = "%ch%cgEXCEPTIONAL SUCCESS%cn (Gain Inspired condition)";
+    outcomeLabel = "Exceptional";
+    outcomeColor = "%ch%cg";
   } else if (result.successes > 0) {
-    outcome = "%ch%ccSUCCESS%cn";
+    outcomeLabel = "Success";
+    outcomeColor = "%ch%cc";
   } else if (result.dramaticFailure) {
-    outcome = "%ch%crDRAMATIC FAILURE!%cn (Things get worse)";
+    outcomeLabel = "Dramatic Failure";
+    outcomeColor = "%ch%cr";
   }
 
-  lines.push(`  %chOutcome:%cn     ${outcome}`);
-  lines.push(await footer());
+  const name = u.util.displayName(u.me, u.me);
+  const line =
+    `%ch%ccROLL>>%cn ${name} ${verb} %ch${expr}%cn  ` +
+    `${diceBlock}${roteBlock} -> %ch%cy${result.successes}%cn successes ` +
+    `(${outcomeColor}${outcomeLabel}%cn)`;
 
-  u.send(lines.join("\n"));
+  u.send(line);
 }

@@ -109,9 +109,8 @@ describe("+roll command", () => {
     });
 
     await rollExec(u);
-    assertStringIncludes(u._sent[0], "C O F D   R O L L");
-    assertStringIncludes(u._sent[0], "strength");
-    assertStringIncludes(u._sent[0], "athletics");
+    assertStringIncludes(u._sent[0], "ROLL>>");
+    assertStringIncludes(u._sent[0], "Strength+Athletics");
   });
 
   it("handles Willpower spend successfully", async () => {
@@ -128,7 +127,7 @@ describe("+roll command", () => {
     });
 
     await rollExec(u);
-    assertStringIncludes(u._sent[0], "Willpower(+3)");
+    assertStringIncludes(u._sent[0], "rolls/wp");
     // Should have updated database to spend 1 willpower
     assertEquals(u._dbCalls.length, 1);
     const updatedSheet = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
