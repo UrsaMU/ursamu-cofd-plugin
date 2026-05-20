@@ -83,6 +83,13 @@ export interface CofdSheet {
   arcaneExperience?: number;
   /** Touchstones (M6 — Vampire Mask/Dirge; also general-use). */
   touchstones?: Touchstones;
+  /**
+   * Temporary stat overrides keyed by stat name (lowercase). Used to render
+   * the sheet as `Base(Temp)` when a scene-bound buff is active
+   * (Vitae boost, Willpower-spend specialty, etc.). Renderer only shows the
+   * parenthetical when the value differs from the base trait.
+   */
+  tempStats?: Record<string, number>;
 }
 
 /** Builds a fresh, empty `HealthTrack`. */
@@ -127,6 +134,9 @@ export function migrateSheet(sheet: any): CofdSheet {
   const touchstones: Touchstones = sheet.touchstones && typeof sheet.touchstones === "object"
     ? sheet.touchstones
     : {};
+  const tempStats: Record<string, number> = sheet.tempStats && typeof sheet.tempStats === "object"
+    ? sheet.tempStats
+    : {};
 
   return {
     ...sheet,
@@ -150,6 +160,7 @@ export function migrateSheet(sheet: any): CofdSheet {
     arcaneBeats,
     arcaneExperience,
     touchstones,
+    tempStats,
   };
 }
 
@@ -194,6 +205,7 @@ export function defaultSheet(): CofdSheet {
     arcaneBeats: 0,
     arcaneExperience: 0,
     touchstones: {},
+    tempStats: {},
   };
 }
 

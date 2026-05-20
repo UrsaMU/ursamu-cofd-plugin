@@ -1,30 +1,45 @@
-// Attributes section: divider + 3 lines of attribute dots.
+// Attributes section: divider + 9 stat lines grouped by Mental/Physical/Social.
 
 import { divider } from "@ursamu/ursamu";
+import { formatDottedStatLine, center } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 
-function formatDot(val: number): string {
-  return "%ch%cy" + "●".repeat(val) + "%cn%cx" + "○".repeat(10 - val) + "%cn";
+const TITLE_CASE = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+
+function statLine(
+  ctx: SheetContext,
+  key: string,
+  base: number,
+): string {
+  const temp = ctx.sheet.tempStats?.[key];
+  // Indent 2 spaces; visible width target is ctx.width - 2 (default 76).
+  return "  " + formatDottedStatLine(TITLE_CASE(key), base, temp, ctx.width - 2);
 }
+
+const MENTAL    = ["intelligence", "wits", "resolve"];
+const PHYSICAL  = ["strength", "dexterity", "stamina"];
+const SOCIAL    = ["presence", "manipulation", "composure"];
 
 export const attributesSection: SheetSection = {
   key: "attributes",
   async render(ctx: SheetContext): Promise<string[]> {
-    const { sheet } = ctx;
+    const { sheet, width } = ctx;
     const atts = sheet.attributes;
     const lines: string[] = [];
 
     lines.push(await divider("A T T R I B U T E S"));
 
-    lines.push(
-      `  %chIntelligence:%cn ${formatDot(atts.intelligence || 1)}  %chStrength:%cn  ${formatDot(atts.strength || 1)}  %chPresence:%cn     ${formatDot(atts.presence || 1)}`
-    );
-    lines.push(
-      `  %chWits:%cn         ${formatDot(atts.wits || 1)}  %chDexterity:%cn ${formatDot(atts.dexterity || 1)}  %chManipulation:%cn ${formatDot(atts.manipulation || 1)}`
-    );
-    lines.push(
-      `  %chResolve:%cn      ${formatDot(atts.resolve || 1)}  %chStamina:%cn   ${formatDot(atts.stamina || 1)}  %chComposure:%cn    ${formatDot(atts.composure || 1)}`
-    );
+    const subhead = (label: string) =>
+      `%ch%cc${center(label, width)}%cn`;
+
+    lines.push(subhead("Mental"));
+    for (const k of MENTAL)   lines.push(statLine(ctx, k, atts[k] || 1));
+
+    lines.push(subhead("Physical"));
+    for (const k of PHYSICAL) lines.push(statLine(ctx, k, atts[k] || 1));
+
+    lines.push(subhead("Social"));
+    for (const k of SOCIAL)   lines.push(statLine(ctx, k, atts[k] || 1));
 
     return lines;
   },
