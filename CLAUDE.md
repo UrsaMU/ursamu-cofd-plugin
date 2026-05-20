@@ -179,6 +179,12 @@ records with their own lifecycle (combat encounters, scene logs, etc.).
 - **Color codes.** Every `%c*` opens a code; every `%cn` closes. Never leave
   open codes; they leak into subsequent output lines.
 - **No emojis** in any file (code, help, docs, commit messages).
+- **Latin-1 only (U+0000..U+00FF).** No em-dashes (U+2014), bullets (U+2022),
+  arrows (U+2192), ellipses, smart quotes, or other non-Latin-1 glyphs in
+  source, JSON catalogs, help text, showcases, or docs. The MUSH terminal
+  is single-byte; multi-byte glyphs render as garbage. Use ASCII fallbacks:
+  `--` for em-dash, `*` or `.` for bullet, `->` for arrow, `...` for
+  ellipsis, plain `'` `"` for quotes.
 
 ---
 
@@ -301,6 +307,7 @@ Step types:
 - [ ] `init()` returns `true`
 - [ ] Every `addCmd` has `help:` with syntax line + examples
 - [ ] No emojis in source, help, or docs
+- [ ] All characters are Latin-1 (U+0000..U+00FF) -- no em-dashes, bullets, arrows, smart quotes
 
 ---
 

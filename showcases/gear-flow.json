@@ -1,0 +1,84 @@
+{
+  "key": "gear-flow",
+  "title": "+gear -- equipment catalog, inventory, and equipped slots",
+  "description": "Demonstrates +gear: catalog browsing, item show, add/equip/unequip/remove, and integration with sheet Defense/Speed and +roll/weapon.",
+  "vars": { "player": "Marcus" },
+  "setup": {
+    "character": {
+      "state": {
+        "cofd": {
+          "template": "mortal",
+          "concept": "Hired muscle",
+          "virtue": "Loyal",
+          "vice": "Wrathful",
+          "attributes": {
+            "strength": 3, "dexterity": 3, "stamina": 2,
+            "intelligence": 2, "wits": 2, "resolve": 2,
+            "presence": 2, "manipulation": 2, "composure": 3
+          },
+          "skills": {
+            "athletics": 2, "brawl": 2, "drive": 1, "firearms": 2, "larceny": 0,
+            "stealth": 1, "survival": 1, "weaponry": 3,
+            "academics": 0, "computer": 0, "crafts": 1, "investigation": 1,
+            "medicine": 0, "occult": 0, "politics": 0, "science": 0,
+            "animal_ken": 0, "empathy": 1, "expression": 0, "intimidation": 2,
+            "persuasion": 1, "socialize": 1, "streetwise": 2, "subterfuge": 1
+          },
+          "specialties": {},
+          "merits": {},
+          "advantages": {
+            "size": 5, "willpowerMax": 5, "willpowerCurrent": 5
+          },
+          "moralityValue": 7,
+          "powerStatValue": 0,
+          "energyCurrent": 0,
+          "customFields": {},
+          "powers": {},
+          "equipment": { "items": [], "equippedWeapon": null, "equippedArmor": null },
+          "tilts": []
+        }
+      }
+    }
+  },
+  "steps": [
+    { "sub": "Browse the Catalog" },
+    { "note": "+gear/list shows the whole Appendix One catalog. /list <category> narrows it." },
+    { "cmd": "+gear/list armor", "label": "armor table" },
+    { "expect": "Kevlar Vest" },
+
+    { "sub": "Inspect One Item" },
+    { "note": "+gear/show pulls up the full stat block." },
+    { "cmd": "+gear/show kevlar-vest", "label": "show kevlar" },
+    { "expect": "Rating" },
+
+    { "sub": "Add to Inventory" },
+    { "note": "+gear/add stores a stable id with the item so equip/remove survive reorderings." },
+    { "cmd": "+gear/add kevlar-vest", "label": "buy armor" },
+    { "cmd": "+gear/add pistol-light", "label": "buy pistol" },
+    { "expect": "Pistol, Light" },
+
+    { "sub": "Equip -- Armor Penalties Apply to the Sheet" },
+    { "note": "+gear/equip moves an item into its natural slot. Armor immediately applies its Defense/Speed penalty." },
+    { "cmd": "+gear/equip 1", "label": "wear armor" },
+    { "expect": "wears" },
+    { "cmd": "+gear/equip 2", "label": "wield pistol" },
+    { "expect": "wields" },
+
+    { "sub": "View Your Loadout" },
+    { "note": "Bare +gear shows the inventory + equipped marks." },
+    { "cmd": "+gear", "label": "loadout" },
+    { "expect": "equipped" },
+
+    { "sub": "Roll With the Weapon" },
+    { "note": "+roll/weapon adds equipped weapon damage as bonus successes on a hit." },
+    { "cmd": "+roll/weapon Dexterity+Weaponry", "label": "stab" },
+
+    { "sub": "Unequip" },
+    { "cmd": "+gear/unequip armor", "label": "drop armor" },
+    { "expect": "removes the armor" },
+
+    { "sub": "Remove" },
+    { "cmd": "+gear/remove 1", "label": "discard kevlar" },
+    { "expect": "Removed" }
+  ]
+}

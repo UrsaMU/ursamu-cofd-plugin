@@ -12,6 +12,11 @@ import { conditionExec } from "./condition.ts";
 import { aspirationExec } from "./aspiration.ts";
 import { vitaeExec } from "./vitae.ts";
 import { touchstoneExec } from "./touchstone.ts";
+import { approveExec, unapproveExec } from "./approve.ts";
+import { notesExec } from "./notes.ts";
+import { gearExec } from "./gear.ts";
+import { tiltExec } from "./tilt.ts";
+import { proveExec } from "./prove.ts";
 
 addCmd({
   name: "+sheet",
@@ -34,15 +39,16 @@ addCmd({
   pattern: /^\+roll(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+roll[/wp][/rote][/9again|/8again] <expression>  — Perform a Chronicles of Darkness D10 roll.
+  help: `+roll[/wp][/rote][/weapon][/9again|/8again] <expression>  — Perform a Chronicles of Darkness D10 roll.
 
 Switches:
   /wp        Spends 1 current Willpower to add +3 dice to the pool.
   /rote      Rote action: reroll every failure (1-7) in the initial pool once.
+  /weapon    On a hit, add equipped weapon damage as bonus successes.
   /9again    Reroll on 9 or 10 instead of just 10.
   /8again    Reroll on 8, 9, or 10 instead of just 10.
 
-Switches stack via / or , (e.g. +roll/wp/rote/9again ...).
+Switches stack via / or , (e.g. +roll/wp/weapon/9again ...).
 
 Examples:
   +roll Strength+Brawl
@@ -50,6 +56,7 @@ Examples:
   +roll 8
   +roll/wp Resolve+Composure
   +roll/rote Wits+Investigation
+  +roll/weapon Strength+Weaponry
   +roll/9again Resolve+Composure
   +roll/8again Wits+Composure
   +roll/wp/rote/9again Stamina+Athletics`,
@@ -250,4 +257,141 @@ Example usage:
   +cg/set Strength=3
   +cg/submit`,
   exec: cgExec
+});
+
+addCmd({
+  name: "+approve",
+  pattern: /^\+approve(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected admin+",
+  category: "Cofd",
+  help: `+approve <player>[=<notes>]  — Approve a pending Chronicles of Darkness chargen submission.
+
+Closes the player's CGEN job, copies their submitted sheet onto the live
+character record, and notifies them.
+
+Examples:
+  +approve Alice
+  +approve Alice=Welcome to the chronicle. Watch your touchstones.`,
+  exec: approveExec,
+});
+
+addCmd({
+  name: "+unapprove",
+  pattern: /^\+unapprove(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected admin+",
+  category: "Cofd",
+  help: `+unapprove <player>=<reason>  — Return a pending Chronicles of Darkness submission for revision.
+
+Reopens the player's CGEN job with a staff comment and clears the
+submitted-job marker so the player can edit and resubmit. The CG state
+is preserved; the live sheet is unchanged.
+
+Examples:
+  +unapprove Alice=Concept needs more detail; please flesh out the backstory.`,
+  exec: unapproveExec,
+});
+
+addCmd({
+  name: "+prove",
+  pattern: /^\+prove(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+prove <traits>[=<player>]  -- Show your trait values to another player or the room.
+
+Switches:
+  /here    Always broadcast to the room (default when no =<player>).
+
+Trait list is comma-separated. Accepts everything +roll accepts:
+attributes, skills, skill/specialty, willpower, morality (Integrity,
+Humanity, etc.), power stat (Blood Potency, Primal Urge, Wyrd...),
+and any template power your sheet has (Vigor, Forces, Mind, etc.).
+
+Max 8 traits per command. Output is a PROVE>> system line read from
+your live sheet -- it cannot be faked with @emit or pose.
+
+Examples:
+  +prove strength                       Broadcast your Strength.
+  +prove strength,athletics,brawl       Broadcast three traits.
+  +prove subterfuge/cons=Marcus         Whisper a specialty to Marcus.
+  +prove/here resolve+composure         (use commas, not +) /here is explicit.
+  +prove vigor,blood potency=Lyra       Whisper Vigor + Blood Potency.`,
+  exec: proveExec,
+});
+
+addCmd({
+  name: "+gear",
+  pattern: /^\+gear(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+gear [<player>]  -- Browse equipment and manage carried items.
+
+Switches:
+  /list [<cat>]                          Catalog by category (weapons|ranged|melee|armor|mental|physical|social|services).
+  /show <key>                            Full catalog entry for an item.
+  /add <key>[/<note>] [for <player>]     Add an item to inventory.
+  /remove <#> [for <player>]             Remove inventory slot #.
+  /equip <#> [for <player>]              Equip weapon or armor at slot #.
+  /unequip <weapon|armor> [for <player>] Unequip a slot.
+
+Equipped armor applies Defense and Speed penalties on the sheet.
+Equipped weapon damage adds to +roll/weapon successes on a hit.
+Cross-player edits require canEdit (builder+).
+
+Examples:
+  +gear                          View your inventory.
+  +gear/list weapons             Browse the weapon tables.
+  +gear/show kevlar-vest         Show the Kevlar Vest entry.
+  +gear/add pistol-light         Add a light pistol to your inventory.
+  +gear/equip 1                  Equip slot 1.
+  +gear/unequip armor            Take off your armor.`,
+  exec: gearExec,
+});
+
+addCmd({
+  name: "+tilt",
+  pattern: /^\+tilt(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+tilt [<player>]  -- View or modify active Tilts (Personal + Environmental).
+
+Switches:
+  /list [<scope>]                        Catalog (filter: personal|environmental).
+  /show <key>                            Full Tilt entry.
+  /add <key>[/<note>] [for <player>]     Inflict a Tilt.
+  /remove <key> [for <player>]           Remove a Tilt (no Beats awarded).
+  /clear [for <player>]                  End-of-scene sweep — clear all Tilts.
+
+Tilts award no Beats on resolution (CoFD 2e core p.282).
+Cross-player edits require canEdit (builder+).
+
+Examples:
+  +tilt                          View your active Tilts.
+  +tilt/list environmental       List environmental Tilts.
+  +tilt/show stunned             Show the Stunned Tilt.
+  +tilt/add stunned              Apply Stunned to yourself.
+  +tilt/add ice for Marcus       Apply Ice to Marcus (builder+).
+  +tilt/clear                    End scene — wipe your Tilts.`,
+  exec: tiltExec,
+});
+
+addCmd({
+  name: "+notes",
+  pattern: /^\+notes(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+notes [...]  — Character notes with public/private visibility.
+
+Syntax:
+  +notes                        Show your own notes.
+  +notes <player>               Show another player's visible notes.
+  +notes <player>/<name>        Show one note in full.
+  +notes/add [<player>/]<name>=<text>    Create a note (public by default).
+  +notes/edit [<player>/]<name>=<text>   Replace the text.
+  +notes/del [<player>/]<name>           Delete a note.
+  +notes/priv [<player>/]<name>=public|private
+
+Notes:
+  Private notes are visible only to their owner and staff. Cross-player
+  edits require canEdit. Max name 40 chars; max text 8000 chars.`,
+  exec: notesExec,
 });

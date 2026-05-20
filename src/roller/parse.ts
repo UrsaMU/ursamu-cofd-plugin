@@ -11,6 +11,90 @@ import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";
 import { healthMax, woundPenalty } from "../health/index.ts";
 
+/** A single resolved trait token (attribute / skill / power / morality / etc). */
+export interface ResolvedTrait {
+  /** Display label, e.g. "Strength", "Brawl/Boxing", "Blood Potency". */
+  label: string;
+  /** Total numeric value including specialty bonus if any. */
+  value: number;
+  /** Base trait value before any specialty bonus. */
+  base: number;
+  /** Specialty name, if the token matched a skill specialty the sheet owns. */
+  specialty?: string;
+}
+
+/**
+ * Resolves a single lowercase trait token to its label and value on the
+ * sheet, or null if the token is not a known trait. Mirrors the trait
+ * vocabulary accepted by parseRollExpression, so +prove and +roll see the
+ * same set of names.
+ *
+ * Untrained-skill penalty is NOT applied here -- consumers like +prove
+ * want the raw owned value, not a roll-pool view.
+ */
+export function resolveTrait(token: string, sheet: CofdSheet): ResolvedTrait | null {
+  sheet = migrateSheet(sheet);
+  const t = token.toLowerCase().trim();
+  if (!t) return null;
+  const tKey = sheet.template.toLowerCase().trim();
+  const tmpl = COFD_TEMPLATES[tKey] || COFD_TEMPLATES.mortal;
+
+  // Skill with specialty: "skill/spec"
+  if (t.includes("/")) {
+    const [skillName, ...rest] = t.split("/");
+    const specName = rest.join("/");
+    if (!(COFD_SKILLS as readonly string[]).includes(skillName)) return null;
+    const base = sheet.skills[skillName as CofdSkill] || 0;
+    const owned = (sheet.specialties[skillName] || []).find((s) =>
+      s.toLowerCase() === specName
+    );
+    if (!owned) return null;
+    return {
+      label: `${titleCase(skillName)}/${owned}`,
+      base,
+      value: base + 1,
+      specialty: owned,
+    };
+  }
+
+  if ((COFD_ATTRIBUTES as readonly string[]).includes(t)) {
+    const v = sheet.attributes[t as CofdAttribute] || 1;
+    return { label: titleCase(t), base: v, value: v };
+  }
+  if ((COFD_SKILLS as readonly string[]).includes(t)) {
+    const v = sheet.skills[t as CofdSkill] || 0;
+    return { label: titleCase(t), base: v, value: v };
+  }
+
+  const powerAliases = [tmpl.powerStatName.toLowerCase()];
+  if (tmpl.powerStatName === "Blood Potency") powerAliases.push("bp");
+  if (tmpl.powerStatName === "Primal Urge") powerAliases.push("pu");
+  if (powerAliases.includes(t)) {
+    const v = sheet.powerStatValue || 0;
+    return { label: tmpl.powerStatName, base: v, value: v };
+  }
+  if (t === tmpl.moralityName.toLowerCase()) {
+    const v = sheet.moralityValue || 0;
+    return { label: tmpl.moralityName, base: v, value: v };
+  }
+  if (tmpl.validPowers.includes(t)) {
+    const v = sheet.powers[t] || 0;
+    return { label: titleCase(t), base: v, value: v };
+  }
+  if (t === "willpower" || t === "wp") {
+    return {
+      label: "Willpower",
+      base: sheet.advantages.willpowerCurrent,
+      value: sheet.advantages.willpowerCurrent,
+    };
+  }
+  return null;
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\b([a-z])/g, (_m, c) => c.toUpperCase());
+}
+
 export interface ParsedRoll {
   pool: number;
   terms: string[];

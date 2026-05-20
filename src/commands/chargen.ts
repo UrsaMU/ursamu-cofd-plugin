@@ -1,6 +1,7 @@
 // +cg command implementation: guided 6-stage character creation.
 
 import { header, footer, type IUrsamuSDK } from "@ursamu/ursamu";
+import { getNextJobNumber, jobs, type IJob } from "@ursamu/jobs-plugin";
 import {
   initCgState,
   getStageInstructions,
@@ -11,7 +12,10 @@ import {
 
 export async function cgExec(u: IUrsamuSDK) {
   const sw = (u.cmd.args[0] ?? "").toLowerCase().trim();
-  const rawArg = (u.cmd.args[1] ?? "").trim();
+  // stripSubs first: chargen fields (name, concept, etc.) are persisted to
+  // cofd_cg and later copied to the live sheet via +approve. Without this,
+  // a player can plant %c color codes in their own concept/description.
+  const rawArg = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
 
   // Find target - self only for character generation
   const target = u.me;
@@ -92,19 +96,60 @@ export async function cgExec(u: IUrsamuSDK) {
     }
 
     if (cgState.stage === 6) {
-      // Complete! Copy to active cofd sheet, clear cg state
+      // Idempotency: refuse if a CGEN job is already pending for this player.
+      if (cgState.submittedJob) {
+        const existing = await jobs.findOne({ number: cgState.submittedJob });
+        if (existing && (existing.status === "new" || existing.status === "open")) {
+          u.send(`%crYou already have CGEN job #${existing.number} pending staff review.%cn`);
+          return;
+        }
+      }
+
       const sheet = cgState.sheet;
       if (!sheet.specialties) sheet.specialties = {};
 
-      // Save sheet and clear cg state
-      await u.db.modify(target.id, "$set", { "data.cofd": sheet });
-      await u.db.modify(target.id, "$unset", { "data.cofd_cg": "" });
+      const submitterName = u.util.displayName(target, u.me);
+      const number = await getNextJobNumber();
+      const now = Date.now();
+      const template = (sheet.template ?? "Mortal").toString();
+      const concept = (sheet.concept ?? "(none)").toString();
+
+      const job: IJob = {
+        id: `job-${number}`,
+        number,
+        title: `Chargen: ${submitterName} (${template})`,
+        bucket: "CGEN",
+        status: "new",
+        submittedBy: target.id,
+        submitterName,
+        description: [
+          `Character: ${submitterName}`,
+          `Template:  ${template}`,
+          `Concept:   ${concept}`,
+          ``,
+          `Sheet snapshot:`,
+          "```",
+          JSON.stringify(sheet, null, 2),
+          "```",
+        ].join("\n"),
+        comments: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      await jobs.create(job);
+
+      cgState.submittedJob = number;
+      cgState.submittedAt = now;
+      await u.db.modify(target.id, "$set", { "data.cofd_cg": cgState });
 
       const lines: string[] = [];
-      lines.push(await header("Character Generation: Complete!"));
-      lines.push(`Congratulations! Character generation for %ch${u.util.displayName(target, u.me)}%cn is complete.`);
-      lines.push("Your approved sheet is now active! You can view it using '%ch+sheet%cn'.");
-      lines.push("You can now roll traits using '%ch+roll <expression>%cn'.");
+      lines.push(await header("Character Generation: Submitted"));
+      lines.push(`Your character %ch${submitterName}%cn has been submitted`);
+      lines.push(`for staff review as job #${number}. You will be notified`);
+      lines.push(`when staff approve or return the submission.`);
+      lines.push(``);
+      lines.push(`%ch+cg%cn shows your current state; %ch+cg/reset%cn discards it`);
+      lines.push(`(the open job is unaffected).`);
       lines.push(await footer());
       u.send(lines.join("\n"));
     } else {

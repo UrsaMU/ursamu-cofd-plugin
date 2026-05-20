@@ -36,7 +36,10 @@ export async function sheetSetExec(u: IUrsamuSDK) {
   let lhs = "";
   let rhs = "";
   const a0 = (u.cmd.args[0] ?? "").trim();
-  const a1 = (u.cmd.args[1] ?? "").trim();
+  // stripSubs first: trait names/values and specialty text get persisted to
+  // the sheet and later echoed via +sheet output. Without this, a player can
+  // plant %c color codes (or staff-channel tokens) in their own labels.
+  const a1 = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
 
   if (a0.toLowerCase() === "set" || a0.toLowerCase() === "") {
     // Real path: parse args[1] as "<lhs>=<rhs>".
@@ -111,6 +114,10 @@ export async function sheetSetExec(u: IUrsamuSDK) {
       sheet.specialties[skillName] = [];
     }
 
+    if (specValue.length > 40) {
+      u.send(`Specialty name too long (max 40 characters; got ${specValue.length}).`);
+      return;
+    }
     if (!specValue) {
       // Empty value resets the skill's specialty list (matches the trait
       // reset convention: `+sheet/set athletics=` -> reset Athletics).

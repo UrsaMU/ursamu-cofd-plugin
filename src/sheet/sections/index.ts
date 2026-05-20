@@ -11,6 +11,7 @@ import { powersSection } from "./powers.ts";
 import { vampireSection } from "./vampire.ts";
 import { beatsXpSection } from "./beats-xp.ts";
 import { conditionsAspirationsSection } from "./conditions-aspirations.ts";
+import { equipmentSection } from "./equipment.ts";
 
 export type { SheetSection, SheetContext } from "./types.ts";
 
@@ -25,6 +26,7 @@ export {
   vampireSection,
   beatsXpSection,
   conditionsAspirationsSection,
+  equipmentSection,
 };
 
 /** Default render order. Future subsystems append their own sections here. */
@@ -33,10 +35,11 @@ export const defaultSections: SheetSection[] = [
   attributesSection,
   skillsSection,
   advantagesSection,
-  healthSection,
   meritsSection,
   powersSection,
   vampireSection,
+  equipmentSection,
   beatsXpSection,
   conditionsAspirationsSection,
+  healthSection,
 ];

@@ -28,6 +28,28 @@ export interface Aspiration {
   shortTerm: boolean;
 }
 
+/** Runtime instance of an active Tilt (Personal or Environmental). */
+export interface TiltInstance {
+  key: string;
+  note?: string;
+}
+
+/** A single item in a character's inventory (catalog reference + stable id). */
+export interface InventoryItem {
+  id: string;
+  key: string;
+  note?: string;
+}
+
+/** Equipment block on the sheet. Catalog details live in resources/equipment.json. */
+export interface EquipmentState {
+  items: InventoryItem[];
+  /** Item id (not key) of the currently-equipped weapon, or null. */
+  equippedWeapon: string | null;
+  /** Item id (not key) of the currently-equipped armor, or null. */
+  equippedArmor: string | null;
+}
+
 /**
  * Touchstones anchor a character to their morality track.
  *
@@ -90,6 +112,15 @@ export interface CofdSheet {
    * parenthetical when the value differs from the base trait.
    */
   tempStats?: Record<string, number>;
+  /** Active Tilts. Personal + environmental are both stored here. */
+  tilts?: TiltInstance[];
+  /** Carried gear, equipped weapon, equipped armor. */
+  equipment?: EquipmentState;
+}
+
+/** Builds a fresh, empty `EquipmentState`. */
+function emptyEquipment(): EquipmentState {
+  return { items: [], equippedWeapon: null, equippedArmor: null };
 }
 
 /** Builds a fresh, empty `HealthTrack`. */
@@ -137,6 +168,14 @@ export function migrateSheet(sheet: any): CofdSheet {
   const tempStats: Record<string, number> = sheet.tempStats && typeof sheet.tempStats === "object"
     ? sheet.tempStats
     : {};
+  const tilts: TiltInstance[] = Array.isArray(sheet.tilts) ? sheet.tilts : [];
+  const equipment: EquipmentState = sheet.equipment && typeof sheet.equipment === "object"
+    ? {
+      items: Array.isArray(sheet.equipment.items) ? sheet.equipment.items : [],
+      equippedWeapon: sheet.equipment.equippedWeapon ?? null,
+      equippedArmor: sheet.equipment.equippedArmor ?? null,
+    }
+    : emptyEquipment();
 
   return {
     ...sheet,
@@ -161,6 +200,8 @@ export function migrateSheet(sheet: any): CofdSheet {
     arcaneExperience,
     touchstones,
     tempStats,
+    tilts,
+    equipment,
   };
 }
 
@@ -206,6 +247,8 @@ export function defaultSheet(): CofdSheet {
     arcaneExperience: 0,
     touchstones: {},
     tempStats: {},
+    tilts: [],
+    equipment: emptyEquipment(),
   };
 }
 

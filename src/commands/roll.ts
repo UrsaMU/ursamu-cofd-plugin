@@ -11,6 +11,7 @@
 import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
+import { equippedWeapon } from "../equipment/index.ts";
 
 export async function rollExec(u: IUrsamuSDK) {
   const swRaw = (u.cmd.args[0] ?? "").toLowerCase().trim();
@@ -28,6 +29,7 @@ export async function rollExec(u: IUrsamuSDK) {
 
   let wantWp = false;
   let rote = false;
+  let useWeapon = false;
   let again: AgainThreshold = 10;
 
   for (const sw of switches) {
@@ -35,12 +37,14 @@ export async function rollExec(u: IUrsamuSDK) {
       wantWp = true;
     } else if (sw === "rote") {
       rote = true;
+    } else if (sw === "weapon") {
+      useWeapon = true;
     } else if (sw === "9again" || sw === "9-again") {
       again = 9;
     } else if (sw === "8again" || sw === "8-again") {
       again = 8;
     } else {
-      u.send(`Error: Unknown switch '/${sw}'. Valid: /wp, /rote, /9again, /8again.`);
+      u.send(`Error: Unknown switch '/${sw}'. Valid: /wp, /rote, /weapon, /9again, /8again.`);
       return;
     }
   }
@@ -69,10 +73,31 @@ export async function rollExec(u: IUrsamuSDK) {
   const finalPool = parsed.pool + wpBonus;
   const result = executeRoll(finalPool, { again, rote });
 
+  // /weapon: add equipped weapon damage as bonus successes on a hit (>=1
+  // success). Per CoFD core, weapon damage is "bonus successes added to a
+  // successful attack" — no hit, no bonus. Chance-die successes count too.
+  let weaponBonus = 0;
+  let weaponName: string | null = null;
+  if (useWeapon) {
+    const w = equippedWeapon(sheet);
+    if (!w) {
+      u.send("Error: No weapon equipped. Use +gear/equip <#> first.");
+      return;
+    }
+    if (result.successes > 0) {
+      weaponBonus = w.damage;
+      result.successes += w.damage;
+      // Re-evaluate exceptional success after weapon bonus (per RAW, 5+ total).
+      if (result.successes >= 5) result.exceptional = true;
+    }
+    weaponName = w.name;
+  }
+
   // Build the switch-suffix on "rolls" — e.g. "rolls/wp/rote".
   const verbSwitches: string[] = [];
   if (spentWp) verbSwitches.push("wp");
   if (result.rote && !result.isChanceDie) verbSwitches.push("rote");
+  if (useWeapon) verbSwitches.push("weapon");
   if (!result.isChanceDie && result.again !== 10) verbSwitches.push(`${result.again}again`);
   const verb = verbSwitches.length ? `rolls/${verbSwitches.join("/")}` : "rolls";
 
@@ -106,8 +131,13 @@ export async function rollExec(u: IUrsamuSDK) {
   // Verbose expression: each trait shows its value, e.g. "Strength(3)+Brawl(2)".
   // Title-case the parser's lowercase trait names for a friendlier display.
   const titled = parsed.terms.map((t) => t.replace(/\b([a-z])/g, (_m, c) => c.toUpperCase()));
-  const verboseExpr = titled.join(" + ") + (spentWp ? " + Willpower(+3)" : "");
-  const bareExpr = expr + (spentWp ? " +wp" : "");
+  const weaponSuffix = weaponName && weaponBonus > 0
+    ? ` + ${weaponName}(+${weaponBonus})`
+    : weaponName
+    ? ` + ${weaponName}(miss)`
+    : "";
+  const verboseExpr = titled.join(" + ") + (spentWp ? " + Willpower(+3)" : "") + weaponSuffix;
+  const bareExpr = expr + (spentWp ? " +wp" : "") + (useWeapon ? " +weapon" : "");
 
   const buildLine = (exprStr: string) =>
     `%ch%ccROLL>>%cn ${name} ${verb} %ch${exprStr}%cn  ` +
