@@ -102,10 +102,43 @@ export async function rollExec(u: IUrsamuSDK) {
   }
 
   const name = u.util.displayName(u.me, u.me);
-  const line =
-    `%ch%ccROLL>>%cn ${name} ${verb} %ch${expr}%cn  ` +
+
+  // Verbose expression: each trait shows its value, e.g. "Strength(3)+Brawl(2)".
+  // Title-case the parser's lowercase trait names for a friendlier display.
+  const titled = parsed.terms.map((t) => t.replace(/\b([a-z])/g, (_m, c) => c.toUpperCase()));
+  const verboseExpr = titled.join(" + ") + (spentWp ? " + Willpower(+3)" : "");
+  const bareExpr = expr + (spentWp ? " +wp" : "");
+
+  const buildLine = (exprStr: string) =>
+    `%ch%ccROLL>>%cn ${name} ${verb} %ch${exprStr}%cn  ` +
     `${diceBlock}${roteBlock} -> %ch%cy${result.successes}%cn successes ` +
     `(${outcomeColor}${outcomeLabel}%cn)`;
 
-  u.send(line);
+  const verboseLine = buildLine(verboseExpr);
+  const bareLine    = buildLine(bareExpr);
+
+  // The roller and anyone who can edit the roller (STs, builders) see the
+  // verbose form with trait values. Everyone else in the room sees the
+  // bare expression.
+  u.send(verboseLine);
+
+  const meId = u.me.id;
+  const occupants = (u.here?.contents ?? [])
+    .filter((o) =>
+      o &&
+      o !== u.me &&
+      o.id !== meId &&
+      typeof o.flags?.has === "function" &&
+      o.flags.has("player")
+    );
+
+  for (const observer of occupants) {
+    let line = bareLine;
+    try {
+      if (await u.canEdit(observer, u.me)) line = verboseLine;
+    } catch {
+      // canEdit can fail in test/mock environments — default to bare.
+    }
+    u.send(line, observer.id);
+  }
 }

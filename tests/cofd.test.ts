@@ -110,7 +110,9 @@ describe("+roll command", () => {
 
     await rollExec(u);
     assertStringIncludes(u._sent[0], "ROLL>>");
-    assertStringIncludes(u._sent[0], "Strength+Athletics");
+    // Roller sees the verbose form with trait values: "Strength(1)+Athletics(0,...)".
+    assertStringIncludes(u._sent[0].toLowerCase(), "strength");
+    assertStringIncludes(u._sent[0].toLowerCase(), "athletics");
   });
 
   it("handles Willpower spend successfully", async () => {
