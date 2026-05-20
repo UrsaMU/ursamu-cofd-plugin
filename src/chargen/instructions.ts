@@ -1,6 +1,6 @@
 // Renders character generation per-stage instructions, current values, and progress.
 
-import { header, footer, divider } from "jsr:@ursamu/ursamu";
+import { header, footer, divider } from "@ursamu/ursamu";
 import {
   COFD_MENTAL_SKILLS,
   COFD_PHYSICAL_SKILLS,

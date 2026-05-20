@@ -5,7 +5,7 @@
 // suppressed when empty. If both lists are empty the whole section returns
 // no lines so a fresh sheet stays clean.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import { lookupCondition } from "../../subsystems/conditions.ts";
 import type { SheetContext, SheetSection } from "./types.ts";
 

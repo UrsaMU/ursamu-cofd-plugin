@@ -1,6 +1,6 @@
 // Header section: outer header banner, name/concept, virtue/vice, custom fields.
 
-import { header } from "jsr:@ursamu/ursamu";
+import { header } from "@ursamu/ursamu";
 import { ljust } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 

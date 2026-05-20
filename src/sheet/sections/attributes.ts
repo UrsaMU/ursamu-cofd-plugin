@@ -1,6 +1,6 @@
 // Attributes section: divider + 3 lines of attribute dots.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import type { SheetSection, SheetContext } from "./types.ts";
 
 function formatDot(val: number): string {

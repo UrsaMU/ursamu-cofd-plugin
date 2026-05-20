@@ -1,6 +1,6 @@
 // Merits section: two-column merit listing in 5-dot scale.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import { COFD_MERITS } from "../../dictionary/index.ts";
 import { ljust } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";

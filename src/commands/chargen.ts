@@ -1,6 +1,6 @@
 // +cg command implementation: guided 6-stage character creation.
 
-import { header, footer, type IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { header, footer, type IUrsamuSDK } from "@ursamu/ursamu";
 import {
   initCgState,
   getStageInstructions,

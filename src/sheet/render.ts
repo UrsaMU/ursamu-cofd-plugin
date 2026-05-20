@@ -5,7 +5,7 @@
 // add their own section files under `./sections/` and append themselves to
 // `defaultSections` — no need to touch this file.
 
-import { footer } from "jsr:@ursamu/ursamu";
+import { footer } from "@ursamu/ursamu";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import {

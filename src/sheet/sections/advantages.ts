@@ -1,7 +1,7 @@
 // Advantages section: willpower/morality/size, initiative/speed/defense,
 // and optional powerStat/energy pool line for supernatural templates.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import { ljust } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 

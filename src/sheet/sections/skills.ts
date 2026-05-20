@@ -1,6 +1,6 @@
 // Skills section: divider + 8 lines of skill dots in three columns.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import {
   COFD_MENTAL_SKILLS,
   COFD_PHYSICAL_SKILLS,

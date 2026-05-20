@@ -1,7 +1,7 @@
 // Powers section: template-aware header (Disciplines/Arcana/Contracts/Renown)
 // rendered as a two-column 10-dot list.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import { ljust } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 

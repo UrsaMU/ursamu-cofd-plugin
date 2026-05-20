@@ -4,7 +4,7 @@
 // Humanity block when the sheet's template is "vampire". Returns [] for any
 // other template so the section is invisible on mortal / werewolf / etc.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import { getBane, getBloodPotencyEntry } from "../../gamelines/vampire.ts";
 import type { SheetContext, SheetSection } from "./types.ts";
 

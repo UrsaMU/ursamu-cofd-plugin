@@ -1,6 +1,6 @@
 // Specialties section: one line per skill that has specialties.
 
-import { divider } from "jsr:@ursamu/ursamu";
+import { divider } from "@ursamu/ursamu";
 import type { SheetSection, SheetContext } from "./types.ts";
 
 export const specialtiesSection: SheetSection = {

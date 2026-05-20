@@ -3,7 +3,7 @@
 // Mask is the public-persona Touchstone; Dirge is the predatory Touchstone.
 // Both are vampire-specific. Cross-player edits require canEdit.
 
-import { type IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { type IUrsamuSDK } from "@ursamu/ursamu";
 import { type CofdSheet, type Touchstones } from "../stats/index.ts";
 
 function splitForTarget(rest: string): { body: string; target: string } {

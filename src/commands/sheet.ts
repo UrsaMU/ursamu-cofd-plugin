@@ -1,6 +1,6 @@
 // +sheet and +sheet/set command implementations.
 
-import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import type { IUrsamuSDK } from "@ursamu/ursamu";
 import {
   defaultSheet,
   setTrait,
@@ -30,8 +30,29 @@ export async function sheetExec(u: IUrsamuSDK) {
 }
 
 export async function sheetSetExec(u: IUrsamuSDK) {
-  const lhs = (u.cmd.args[0] ?? "").trim();
-  const rhs = (u.cmd.args[1] ?? "").trim();
+  // Real call path from addCmd pattern: args[0]="set" (switch),
+  // args[1]="[target/]trait=value" or "specialty/skill=name".
+  // Tests that pre-split into [lhs, rhs] are also supported as a fallback.
+  let lhs = "";
+  let rhs = "";
+  const a0 = (u.cmd.args[0] ?? "").trim();
+  const a1 = (u.cmd.args[1] ?? "").trim();
+
+  if (a0.toLowerCase() === "set" || a0.toLowerCase() === "") {
+    // Real path: parse args[1] as "<lhs>=<rhs>".
+    const eqIdx = a1.indexOf("=");
+    if (eqIdx >= 0) {
+      lhs = a1.slice(0, eqIdx).trim();
+      rhs = a1.slice(eqIdx + 1).trim();
+    } else {
+      lhs = a1;
+      rhs = "";
+    }
+  } else {
+    // Legacy test path: args already split.
+    lhs = a0;
+    rhs = a1;
+  }
 
   if (!lhs || !rhs) {
     u.send("Usage: +sheet/set [<player>/]<trait>=<value> (or specialty/<skill>=<name>)");

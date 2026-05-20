@@ -1,7 +1,7 @@
 // Registers CoFD commands with UrsaMU via addCmd().
 // Imported for side effects from the top-level commands.ts shim.
 
-import { addCmd, type IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { addCmd, type IUrsamuSDK } from "@ursamu/ursamu";
 import { sheetExec, sheetSetExec } from "./sheet.ts";
 import { rollExec } from "./roll.ts";
 import { cgExec } from "./chargen.ts";

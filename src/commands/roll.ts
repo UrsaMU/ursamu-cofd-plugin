@@ -1,6 +1,6 @@
 // +roll command implementation.
 
-import { header, footer, divider, type IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { header, footer, divider, type IUrsamuSDK } from "@ursamu/ursamu";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
 

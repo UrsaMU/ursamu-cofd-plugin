@@ -4,7 +4,7 @@
 // preserve every other sheet field via spread; sheets are stored at
 // `data.cofd`.
 
-import { type IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { type IUrsamuSDK } from "@ursamu/ursamu";
 import {
   BLOOD_POTENCY,
   getBloodPotencyEntry,
