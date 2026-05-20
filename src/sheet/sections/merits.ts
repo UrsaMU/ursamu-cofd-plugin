@@ -1,10 +1,11 @@
-// Merits section: single-column dotted-leader listing (5-dot scale rendered
-// as numeric value, with optional temp value in parens).
+// Merits section: 2 columns of dotted-leader merit lines.
 
 import { divider } from "@ursamu/ursamu";
 import { COFD_MERITS } from "../../dictionary/index.ts";
 import { formatDottedStatLine } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
+
+const SEP = "  ";
 
 function meritName(key: string): string {
   const found = COFD_MERITS.find(m => m.key === key);
@@ -24,12 +25,19 @@ export const meritsSection: SheetSection = {
 
     lines.push(await divider("M E R I T S"));
 
-    for (const key of active) {
-      const base = sheet.merits[key] || 0;
-      const temp = sheet.tempStats?.[key];
-      lines.push(
-        "  " + formatDottedStatLine(meritName(key), base, temp, width - 2),
+    const cw = Math.floor((width - 2 - SEP.length) / 2);
+    for (let i = 0; i < active.length; i += 2) {
+      const k1 = active[i];
+      const k2 = active[i + 1];
+      const cell1 = formatDottedStatLine(
+        meritName(k1), sheet.merits[k1], sheet.tempStats?.[k1], cw,
       );
+      const cell2 = k2
+        ? SEP + formatDottedStatLine(
+            meritName(k2), sheet.merits[k2], sheet.tempStats?.[k2], cw,
+          )
+        : "";
+      lines.push("  " + cell1 + cell2);
     }
 
     return lines;
