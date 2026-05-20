@@ -42,3 +42,19 @@ export function formatDottedStatLine(
 
   return `%ch${labelStr}%cn%cx${dots}%cn%ch%cy${valueStr}%cn`;
 }
+
+/**
+ * Like `formatDottedStatLine` but takes a pre-formatted string value
+ * (e.g. "6/2" for Willpower current/max, or "7/12" for Vitae). Useful for
+ * advantages that aren't simple base(temp) numeric stats.
+ */
+export function formatDottedLine(
+  label: string,
+  value: string,
+  width: number,
+): string {
+  const labelStr = label + ":";
+  const dotsNeeded = width - labelStr.length - value.length;
+  const dots = ".".repeat(Math.max(1, dotsNeeded));
+  return `%ch${labelStr}%cn%cx${dots}%cn%ch%cy${value}%cn`;
+}
