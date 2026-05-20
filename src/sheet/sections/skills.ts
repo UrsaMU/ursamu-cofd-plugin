@@ -1,5 +1,7 @@
-// Skills section: divider + 8 rows x 3 columns (Mental/Physical/Social).
-// Specialties render inline beneath the skill row that has them.
+// Skills section: 3 columns (Mental | Physical | Social) that flow
+// independently. Each column emits its skill rows and any specialty lines
+// inline; the resulting line lists are zipped side-by-side so a column
+// with extra specialties just runs longer than its neighbors.
 
 import { divider } from "@ursamu/ursamu";
 import {
@@ -7,50 +9,62 @@ import {
   COFD_PHYSICAL_SKILLS,
   COFD_SOCIAL_SKILLS,
 } from "../../dictionary/index.ts";
-import { formatDottedStatLine } from "../../support/format.ts";
+import { formatDottedStatLine, ljust } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 
 const TITLE_CASE = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 const SEP = "  ";
 
-function cell(ctx: SheetContext, key: string, base: number, cellWidth: number): string {
+function statCell(ctx: SheetContext, key: string, base: number, cw: number): string {
   const temp = ctx.sheet.tempStats?.[key];
-  return formatDottedStatLine(TITLE_CASE(key), base, temp, cellWidth);
+  return formatDottedStatLine(TITLE_CASE(key), base, temp, cw);
 }
 
-function specialtyLines(ctx: SheetContext, row: [string, string, string]): string[] {
-  const specsBy = (k: string) => ctx.sheet.specialties?.[k] || [];
-  const any = row.some((k) => specsBy(k).length > 0);
-  if (!any) return [];
-  // Indented "(spec1, spec2)" listed by parent skill on one combined line.
-  return row
-    .filter((k) => specsBy(k).length > 0)
-    .map((k) => `    %cx${TITLE_CASE(k)}: ${specsBy(k).join(", ")}%cn`);
+function specialtyCell(name: string, cw: number): string {
+  // Indented within the cell. Pad to cw visible chars so neighbor cells align.
+  const text = "    " + name;
+  return `%cx${ljust(text, cw)}%cn`;
+}
+
+function emptyCell(cw: number): string {
+  return " ".repeat(cw);
+}
+
+/** Build the per-column line list (skill row + specialties below it). */
+function buildColumn(
+  ctx: SheetContext,
+  skills: readonly string[],
+  cw: number,
+): string[] {
+  const sks = ctx.sheet.skills;
+  const out: string[] = [];
+  for (const skill of skills) {
+    out.push(statCell(ctx, skill, sks[skill] || 0, cw));
+    const specs = ctx.sheet.specialties?.[skill] || [];
+    for (const spec of specs) out.push(specialtyCell(spec, cw));
+  }
+  return out;
 }
 
 export const skillsSection: SheetSection = {
   key: "skills",
   async render(ctx: SheetContext): Promise<string[]> {
-    const { sheet, width } = ctx;
-    const sks = sheet.skills;
+    const { width } = ctx;
     const cw = Math.floor((width - 2 - SEP.length * 2) / 3);
     const lines: string[] = [];
 
     lines.push(await divider("S K I L L S"));
 
-    for (let i = 0; i < 8; i++) {
-      const m = COFD_MENTAL_SKILLS[i];
-      const p = COFD_PHYSICAL_SKILLS[i];
-      const s = COFD_SOCIAL_SKILLS[i];
+    const colM = buildColumn(ctx, COFD_MENTAL_SKILLS,   cw);
+    const colP = buildColumn(ctx, COFD_PHYSICAL_SKILLS, cw);
+    const colS = buildColumn(ctx, COFD_SOCIAL_SKILLS,   cw);
 
-      lines.push(
-        "  " +
-        cell(ctx, m, sks[m] || 0, cw) + SEP +
-        cell(ctx, p, sks[p] || 0, cw) + SEP +
-        cell(ctx, s, sks[s] || 0, cw)
-      );
-
-      lines.push(...specialtyLines(ctx, [m, p, s]));
+    const rows = Math.max(colM.length, colP.length, colS.length);
+    for (let i = 0; i < rows; i++) {
+      const cM = colM[i] ?? emptyCell(cw);
+      const cP = colP[i] ?? emptyCell(cw);
+      const cS = colS[i] ?? emptyCell(cw);
+      lines.push("  " + cM + SEP + cP + SEP + cS);
     }
 
     return lines;
