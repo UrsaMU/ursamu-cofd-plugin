@@ -1,4 +1,6 @@
-roll mechanics  -- Detailed rules for +roll resolution.
+roll successes  -- Success counting, the n-again ladder, rote, chance dice,
+                 exceptional and dramatic outcomes, wound and untrained
+                 penalties.
 
 Success and again:
   Success         Any die showing 8, 9, or 10.

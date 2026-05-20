@@ -1,4 +1,5 @@
-condition mechanics  -- Conditions vs Tilts, persistence, Beat economy.
+condition tilts  -- Conditions vs Tilts: persistence, key format, and the
+                  Beat economy that ties them to Experience.
 
 Conditions vs Tilts:
   Conditions are narrative-mechanical states that persist beyond the

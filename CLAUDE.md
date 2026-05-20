@@ -230,11 +230,16 @@ Rules:
 - The first line is `+cmd  --` followed by the one-sentence purpose. This
   matches the first line of the inline `help:` text in the addCmd block,
   so the two stay in sync.
-- **Length target ~40 lines (one MUSH screen).** Long Mechanics blocks
-  and reference tables move into sub-topic files under `help/<cmd>/`:
-  - `help/vitae.md`       — top-level (`help vitae`)
+- **Length target ~40 lines (one MUSH screen).** Long sections and
+  reference tables move into sub-topic files under `help/<cmd>/`:
+  - `help/vitae.md`               — top-level (`help vitae`)
   - `help/vitae/blood-potency.md` — sub-topic (`help vitae blood-potency`)
   - `help/vitae/costs.md`         — sub-topic (`help vitae costs`)
+- **Sub-topic filenames must name what's inside**, not the generic
+  "mechanics" or "details." For example: `roll/successes.md`,
+  `health/wounds.md`, `condition/tilts.md`, `touchstone/humanity.md`.
+  Generic names collide visually and don't help the player skim a
+  `help <cmd>` Topics list.
 - The top-level file lists its sub-topics in a `More:` block above
   `See also:`. The help-plugin's textdir loader scans subdirectories
   recursively, so any nested file is reachable as `help <cmd> <sub>`.

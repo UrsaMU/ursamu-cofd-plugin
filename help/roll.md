@@ -34,6 +34,6 @@ Examples:
   +roll 6                           Raw pool of 6 dice.
 
 More:
-  help roll mechanics      Success threshold, chance die, untrained.
+  help roll successes      Success threshold, chance die, untrained.
 
 See also: cg, sheet, health

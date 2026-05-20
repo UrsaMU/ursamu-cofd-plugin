@@ -34,6 +34,6 @@ Examples:
   +condition/list                       Show every catalog entry.
 
 More:
-  help condition mechanics              Conditions vs Tilts, Beat math.
+  help condition tilts                  Conditions vs Tilts, Beat math.
 
 See also: aspiration, beat, xp, sheet, cofd

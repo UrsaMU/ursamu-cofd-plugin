@@ -1,4 +1,5 @@
-health mechanics  -- Track sizing, damage cascade, wound penalty.
+health wounds  -- Track sizing, damage type cascade, wound penalty,
+                unconscious/dying/dead states.
 
 Track size:
   Stamina + Size. A Stamina 2 / Size 5 human has 7 boxes.

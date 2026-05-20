@@ -31,6 +31,6 @@ Examples:
   +touchstone/mask Father Reyes for Marcus     Builder+.
 
 More:
-  help touchstone mechanics            Humanity link, breaking points.
+  help touchstone humanity             Humanity link, breaking points.
 
 See also: vitae, sheet, cofd

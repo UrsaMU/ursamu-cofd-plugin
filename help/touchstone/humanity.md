@@ -1,5 +1,6 @@
-touchstone mechanics  -- How Mask and Dirge Touchstones interact with
-                       Humanity, breaking points, and Willpower.
+touchstone humanity  -- How Mask and Dirge Touchstones interact with the
+                      Humanity track, breaking points, and Willpower
+                      regain.
 
 State and Humanity:
   Both intact    Breaking-point rolls treat 9 as a re-roll (9-again).

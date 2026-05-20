@@ -31,6 +31,6 @@ Examples:
   +health/heal                   Heal 1 box, heaviest first.
 
 More:
-  help health mechanics          Track size, cascade, wound penalty.
+  help health wounds             Track size, cascade, wound penalty.
 
 See also: roll, sheet, cofd
