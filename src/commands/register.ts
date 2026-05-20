@@ -17,6 +17,9 @@ import { notesExec } from "./notes.ts";
 import { gearExec } from "./gear.ts";
 import { tiltExec } from "./tilt.ts";
 import { proveExec } from "./prove.ts";
+import { combatExec } from "./combat.ts";
+import { attackExec } from "./attack.ts";
+import { grappleExec } from "./grapple.ts";
 
 addCmd({
   name: "+sheet",
@@ -409,4 +412,97 @@ Notes:
   Private notes are visible only to their owner and staff. Cross-player
   edits require canEdit. Max name 40 chars; max text 8000 chars.`,
   exec: notesExec,
+});
+
+addCmd({
+  name: "+combat",
+  pattern: /^\+combat(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+combat [/switch] [<args>]  -- Manage a Chronicles of Darkness combat encounter.
+
+Switches:
+  /start                   Start a new encounter in the current room.
+  /join [for <player>]     Add yourself (or another player) to the encounter.
+  /leave [for <player>]    Remove yourself (or another player) from the encounter.
+  /begin                   Roll initiative for all participants and begin.
+  /next                    Advance to the next participant's turn.
+  /end                     Resolve the encounter and dismiss participants.
+  /order                   Show the current initiative table.
+  /ambush <target>         Contested Dex+Stealth vs Wits+Composure ambush check.
+
+Cross-player /join and /leave require canEdit (builder+).
+
+Examples:
+  +combat               Show the current encounter status.
+  +combat/start         Open a new encounter.
+  +combat/join          Add yourself to the initiative order.
+  +combat/begin         Roll initiative and announce the order.
+  +combat/order         Display the initiative table.
+  +combat/next          Advance the turn.
+  +combat/ambush Marcus Try to ambush Marcus.
+  +combat/end           Close the encounter.`,
+  exec: combatExec,
+});
+
+addCmd({
+  name: "+attack",
+  pattern: /^\+attack\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+attack <target>[/<switches>]  -- Perform a combat attack in an active encounter.
+
+Switches (stackable with /):
+  /unarmed /melee /ranged /thrown  Pool override.
+  /all-out                         +2 dice; attacker loses Defense.
+  /charge                          +2 dice; attacker loses Defense.
+  /aim                             Bank +1 aim for next /ranged attack (max 3).
+  /offhand                         -2 dice.
+  /pull[=<max>]                    Pulling blow; cap damage at <max>.
+  /head /arm /leg /hand /eye /heart /torso  Specified target location.
+  /burst-short /burst-med /burst-long       Autofire bonuses.
+  /into-melee[=<n>]                -2 per bystander to avoid.
+  /target-prone                    Target is prone (-2 ranged, +2 melee).
+  /target-surprised                Target is surprised (no Defense).
+  /willpower                       Spend 1 WP for +3 dice.
+  /no-ammo                         Skip ammo decrement (ST override).
+
+Requires an active encounter (+combat/begin). Must be your turn.
+Cross-player Health writes require canEdit (builder+).
+
+Examples:
+  +attack Marcus
+  +attack Marcus/melee/all-out
+  +attack Beth/ranged/aim
+  +attack Goon/unarmed/head
+  +attack Vlad/willpower/specified=torso`,
+  exec: attackExec,
+});
+
+addCmd({
+  name: "+grapple",
+  pattern: /^\+grapple\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+grapple <target>  -- Initiate a grapple in an active encounter (Str+Brawl vs Defense).
++grapple/<move>    -- Execute a move during an active grapple.
+
+Moves:
+  /break-free      Attempt to escape (Str+Brawl >= holder's Str+Brawl).
+  /control-weapon  Control a weapon in the grapple.
+  /damage          Deal bashing damage (Str+Brawl).
+  /disarm          Disarm the opponent.
+  /drop-prone      Drag both combatants to the ground.
+  /hold            Maintain the grapple without a move.
+  /restrain        Fully restrain the opponent.
+  /take-cover      Use the opponent as cover.
+
+Requires an active encounter (+combat/begin). Must be your turn.
+
+Examples:
+  +grapple Marcus
+  +grapple/damage
+  +grapple/break-free
+  +grapple/restrain`,
+  exec: grappleExec,
 });
