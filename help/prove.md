@@ -23,6 +23,8 @@ Mechanics:
     Power Stat:   blood potency (or bp), primal urge (or pu), wyrd, ...
     Powers:       any template power your sheet has -- vigor, forces,
                   mind, dominate, etc.
+    Equipment:    weapon, armor, gear -- equipped weapon stats, equipped
+                  armor stats, or your inventory list.
   Max 8 traits per command. Unknown tokens are skipped with a quiet note
   appended to your confirmation line.
 
@@ -36,5 +38,7 @@ Examples:
   +prove subterfuge=Marcus                 Whisper Subterfuge to Marcus.
   +prove vigor,blood potency=Lyra          Whisper two supernatural traits.
   +prove/here resolve,composure            Explicit room broadcast.
+  +prove weapon                            Show your equipped weapon.
+  +prove armor,gear=Marcus                 Whisper armor and inventory.
 
-See also: sheet, roll, cofd
+See also: sheet, roll, gear, cofd

@@ -6,6 +6,7 @@ import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import { resolveTrait } from "../src/roller/index.ts";
 import { proveExec } from "../src/commands/prove.ts";
+import { addItem, equipAt } from "../src/equipment/index.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 
@@ -148,6 +149,65 @@ describe("+prove command", OPTS, () => {
     u.cmd.args = ["", "strength=Ghost"];
     await proveExec(u);
     assertStringIncludes(u._sent.join("\n"), "not found");
+  });
+
+  it("proves equipped weapon with damage and initiative", async () => {
+    let sheet = defaultSheet();
+    sheet = addItem(sheet, "pistol-light").sheet;
+    sheet = equipAt(sheet, 1).sheet;
+    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    u.cmd.args = ["", "weapon"];
+    await proveExec(u);
+    const out = u._sent.join("\n");
+    assertStringIncludes(out, "Pistol, Light");
+    assertStringIncludes(out, "Dmg +1");
+  });
+
+  it("proves equipped armor with rating and penalties", async () => {
+    let sheet = defaultSheet();
+    sheet = addItem(sheet, "flak-jacket").sheet;
+    sheet = equipAt(sheet, 1).sheet;
+    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    u.cmd.args = ["", "armor"];
+    await proveExec(u);
+    const out = u._sent.join("\n");
+    assertStringIncludes(out, "Flak Jacket");
+    assertStringIncludes(out, "2/4");
+    assertStringIncludes(out, "Def -1");
+  });
+
+  it("proves gear inventory list", async () => {
+    let sheet = defaultSheet();
+    sheet = addItem(sheet, "knife").sheet;
+    sheet = addItem(sheet, "rope").sheet;
+    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    u.cmd.args = ["", "gear"];
+    await proveExec(u);
+    const out = u._sent.join("\n");
+    assertStringIncludes(out, "Knife");
+    assertStringIncludes(out, "Rope");
+  });
+
+  it("reports 'none' for unequipped slots gracefully", async () => {
+    const u = mockU({ me: mockPlayer({ state: { cofd: defaultSheet() } }) });
+    u.cmd.args = ["", "weapon,armor"];
+    await proveExec(u);
+    const out = u._sent.join("\n");
+    assertStringIncludes(out, "none equipped");
+    assertStringIncludes(out, "none worn");
+  });
+
+  it("mixes gear tokens with attribute traits", async () => {
+    let sheet = defaultSheet();
+    sheet.attributes.strength = 3;
+    sheet = addItem(sheet, "knife").sheet;
+    sheet = equipAt(sheet, 1).sheet;
+    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    u.cmd.args = ["", "strength, weapon"];
+    await proveExec(u);
+    const out = u._sent.join("\n");
+    assertStringIncludes(out, "Strength");
+    assertStringIncludes(out, "Knife");
   });
 
   it("strips MUSH codes from input", async () => {

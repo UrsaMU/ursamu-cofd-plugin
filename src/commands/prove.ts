@@ -5,6 +5,7 @@
 
 import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { resolveTrait } from "../roller/index.ts";
+import { equippedArmor, equippedWeapon, lookupItem } from "../equipment/index.ts";
 import { type CofdSheet } from "../stats/index.ts";
 
 const MAX_TRAITS = 8;
@@ -39,7 +40,40 @@ function parseProveBody(rest: string): ParseResult {
   return { traits, recipient };
 }
 
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+/** Render the equipment-only tokens (weapon | armor | gear). */
+function renderGearToken(token: string, sheet: CofdSheet): string | null {
+  const t = token.toLowerCase().trim();
+  if (t === "weapon") {
+    const w = equippedWeapon(sheet);
+    if (!w) return "%chWeapon%cn(none equipped)";
+    return `%chWeapon%cn(${w.name}, Dmg ${signed(w.damage)}, Init ${signed(w.initiative)})`;
+  }
+  if (t === "armor") {
+    const a = equippedArmor(sheet);
+    if (!a) return "%chArmor%cn(none worn)";
+    return `%chArmor%cn(${a.name}, ${a.ratingGeneral}/${a.ratingBallistic}, ` +
+      `Def ${signed(a.defensePenalty)}, Spd ${signed(a.speedPenalty)})`;
+  }
+  if (t === "gear" || t === "inventory") {
+    const items = sheet.equipment?.items ?? [];
+    if (items.length === 0) return "%chGear%cn(empty)";
+    const names = items.map((it) => lookupItem(it.key)?.entry.name ?? it.key);
+    return `%chGear%cn(${names.join(", ")})`;
+  }
+  return null;
+}
+
 function renderTrait(token: string, sheet: CofdSheet): string | null {
+  // Gear tokens take priority -- they're not numeric traits, so they short-
+  // circuit resolveTrait, which would otherwise return null and mark them
+  // skipped.
+  const gearLine = renderGearToken(token, sheet);
+  if (gearLine) return gearLine;
+
   const resolved = resolveTrait(token, sheet);
   if (!resolved) return null;
   if (resolved.specialty) {

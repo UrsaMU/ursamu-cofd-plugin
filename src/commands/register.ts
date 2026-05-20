@@ -306,6 +306,11 @@ attributes, skills, skill/specialty, willpower, morality (Integrity,
 Humanity, etc.), power stat (Blood Potency, Primal Urge, Wyrd...),
 and any template power your sheet has (Vigor, Forces, Mind, etc.).
 
+Equipment tokens are also accepted:
+  weapon     Your equipped weapon with damage and initiative.
+  armor      Your equipped armor with rating and Def/Spd penalties.
+  gear       Your full inventory list.
+
 Max 8 traits per command. Output is a PROVE>> system line read from
 your live sheet -- it cannot be faked with @emit or pose.
 
@@ -314,7 +319,10 @@ Examples:
   +prove strength,athletics,brawl       Broadcast three traits.
   +prove subterfuge/cons=Marcus         Whisper a specialty to Marcus.
   +prove/here resolve+composure         (use commas, not +) /here is explicit.
-  +prove vigor,blood potency=Lyra       Whisper Vigor + Blood Potency.`,
+  +prove vigor,blood potency=Lyra       Whisper Vigor + Blood Potency.
+  +prove weapon                         Show your equipped weapon.
+  +prove armor=Marcus                   Whisper your equipped armor to Marcus.
+  +prove weapon,armor,gear              Show full loadout.`,
   exec: proveExec,
 });
 
