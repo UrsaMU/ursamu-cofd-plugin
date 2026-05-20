@@ -1,13 +1,19 @@
 // Equipment section -- equipped weapon/armor + inventory list.
-// Suppressed entirely when the character has no items and no equipped slots.
+// Items are real UrsaMU objects; this section queries the carrier's contents.
+// When u is absent (offline tests) the section renders nothing.
 
 import { divider } from "@ursamu/ursamu";
-import { lookupItem } from "../../equipment/index.ts";
+import {
+  carriedItems,
+  displayName,
+  equippedArmorEntry,
+  equippedWeaponEntry,
+  itemData,
+} from "../../equipment/index.ts";
 import type { SheetContext, SheetSection } from "./types.ts";
 
 function pad(s: string, n: number): string {
-  if (s.length >= n) return s.slice(0, n);
-  return s + " ".repeat(n - s.length);
+  return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length);
 }
 
 function signed(n: number): string {
@@ -17,49 +23,53 @@ function signed(n: number): string {
 export const equipmentSection: SheetSection = {
   key: "equipment",
   async render(ctx: SheetContext): Promise<string[]> {
-    const { sheet } = ctx;
+    const { sheet, actorId, u } = ctx;
+    if (!u) return [];
+
     const state = sheet.equipment;
-    const items = state?.items ?? [];
+    const carried = await carriedItems(u, actorId);
     const hasEquipped = !!(state?.equippedWeapon || state?.equippedArmor);
-    if (items.length === 0 && !hasEquipped) return [];
+    if (carried.length === 0 && !hasEquipped) return [];
 
     const lines: string[] = [];
     lines.push(await divider("E Q U I P M E N T"));
 
-    if (state?.equippedWeapon) {
-      const item = items.find((i) => i.id === state.equippedWeapon);
-      const resolved = item ? lookupItem(item.key) : undefined;
-      if (resolved && (resolved.type === "weapon-ranged" || resolved.type === "weapon-melee")) {
-        const w = resolved.entry as { name: string; damage: number; initiative: number };
-        lines.push(`  Weapon:  ${w.name}  (Dmg ${signed(w.damage)}, Init ${signed(w.initiative)})`);
-      }
-    }
-    if (state?.equippedArmor) {
-      const item = items.find((i) => i.id === state.equippedArmor);
-      const resolved = item ? lookupItem(item.key) : undefined;
-      if (resolved && resolved.type === "armor") {
-        const a = resolved.entry as {
-          name: string; ratingGeneral: number; ratingBallistic: number;
-          defensePenalty: number; speedPenalty: number;
-        };
-        lines.push(
-          `  Armor:   ${a.name}  (${a.ratingGeneral}/${a.ratingBallistic}, ` +
-          `Def ${signed(a.defensePenalty)}, Spd ${signed(a.speedPenalty)})`,
-        );
-      }
+    const weaponInfo = await equippedWeaponEntry(u, state?.equippedWeapon ?? null);
+    if (weaponInfo) {
+      const { obj, entry, data } = weaponInfo;
+      const ammo = typeof data.currentClip === "number" && typeof entry.clip === "number"
+        ? `, Ammo ${data.currentClip}/${entry.clip}`
+        : "";
+      lines.push(
+        `  Weapon:  ${displayName(obj)}  (Dmg ${signed(entry.damage)}, Init ${signed(entry.initiative)}${ammo})`,
+      );
     }
 
-    if (items.length > 0) {
+    const armorInfo = await equippedArmorEntry(u, state?.equippedArmor ?? null);
+    if (armorInfo) {
+      const { obj, entry } = armorInfo;
+      lines.push(
+        `  Armor:   ${displayName(obj)}  (${entry.ratingGeneral}/${entry.ratingBallistic}, ` +
+          `Def ${signed(entry.defensePenalty)}, Spd ${signed(entry.speedPenalty)})`,
+      );
+    }
+
+    // Inventory list: unequipped items first, then equipped (shown for completeness).
+    const inv = carried.filter((o) => !itemData(o)?.equippedBy);
+    const equipped = carried.filter((o) => !!itemData(o)?.equippedBy);
+    const ordered = [...inv, ...equipped];
+
+    if (ordered.length > 0) {
       lines.push(`  Inventory:`);
-      items.forEach((item, idx) => {
-        const resolved = lookupItem(item.key);
-        const name = resolved?.entry.name ?? item.key;
+      ordered.forEach((obj, i) => {
+        const d = itemData(obj)!;
         const marks: string[] = [];
-        if (state?.equippedWeapon === item.id) marks.push("equipped");
-        if (state?.equippedArmor === item.id) marks.push("worn");
+        if (state?.equippedWeapon === obj.id) marks.push("equipped");
+        if (state?.equippedArmor === obj.id) marks.push("worn");
         const tag = marks.length ? ` (${marks.join(", ")})` : "";
-        const note = item.note ? ` -- ${item.note}` : "";
-        lines.push(`    ${pad(String(idx + 1) + ".", 4)} ${name}${tag}${note}`);
+        const ammo = typeof d.currentClip === "number" ? ` [ammo ${d.currentClip}]` : "";
+        const note = d.note ? ` -- ${d.note}` : "";
+        lines.push(`    ${pad(String(i + 1) + ".", 4)} ${displayName(obj)}${ammo}${tag}${note}`);
       });
     }
 

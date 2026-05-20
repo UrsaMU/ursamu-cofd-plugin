@@ -34,19 +34,19 @@ export interface TiltInstance {
   note?: string;
 }
 
-/** A single item in a character's inventory (catalog reference + stable id). */
-export interface InventoryItem {
-  id: string;
-  key: string;
-  note?: string;
-}
-
-/** Equipment block on the sheet. Catalog details live in resources/equipment.json. */
+/**
+ * Equipment block on the sheet.
+ *
+ * The actual items are records in the `cofd.items` DBO collection so they
+ * can carry per-instance state (ammo, custom labels, durability later).
+ * The sheet only records which item ids occupy the equipped slots. The
+ * carried inventory is computed by querying `cofd.items` for
+ * `{ ownerId: actorId, location: "inventory" }`.
+ */
 export interface EquipmentState {
-  items: InventoryItem[];
-  /** Item id (not key) of the currently-equipped weapon, or null. */
+  /** Item id (not catalog key) of the currently-equipped weapon, or null. */
   equippedWeapon: string | null;
-  /** Item id (not key) of the currently-equipped armor, or null. */
+  /** Item id (not catalog key) of the currently-equipped armor, or null. */
   equippedArmor: string | null;
 }
 
@@ -120,7 +120,7 @@ export interface CofdSheet {
 
 /** Builds a fresh, empty `EquipmentState`. */
 function emptyEquipment(): EquipmentState {
-  return { items: [], equippedWeapon: null, equippedArmor: null };
+  return { equippedWeapon: null, equippedArmor: null };
 }
 
 /** Builds a fresh, empty `HealthTrack`. */
@@ -169,9 +169,12 @@ export function migrateSheet(sheet: any): CofdSheet {
     ? sheet.tempStats
     : {};
   const tilts: TiltInstance[] = Array.isArray(sheet.tilts) ? sheet.tilts : [];
+  // Migration: any pre-DBO embedded items[] on the sheet are dropped. The
+  // gear refactor moves items to a dedicated DBO collection; pre-existing
+  // sheets with embedded items would need a separate migrator (not in
+  // scope -- the plugin has no production data).
   const equipment: EquipmentState = sheet.equipment && typeof sheet.equipment === "object"
     ? {
-      items: Array.isArray(sheet.equipment.items) ? sheet.equipment.items : [],
       equippedWeapon: sheet.equipment.equippedWeapon ?? null,
       equippedArmor: sheet.equipment.equippedArmor ?? null,
     }

@@ -5,7 +5,12 @@
 
 import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { resolveTrait } from "../roller/index.ts";
-import { equippedArmor, equippedWeapon, lookupItem } from "../equipment/index.ts";
+import {
+  equippedArmorEntry,
+  equippedWeaponEntry,
+  inventoryItems,
+  displayName,
+} from "../equipment/index.ts";
 import { type CofdSheet } from "../stats/index.ts";
 
 const MAX_TRAITS = 8;
@@ -44,41 +49,42 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-/** Render the equipment-only tokens (weapon | armor | gear). */
-function renderGearToken(token: string, sheet: CofdSheet): string | null {
+/** Render equipment-only tokens using real game objects. */
+async function renderGearToken(
+  token: string,
+  sheet: CofdSheet,
+  u: import("@ursamu/ursamu").IUrsamuSDK,
+): Promise<string | null> {
   const t = token.toLowerCase().trim();
   if (t === "weapon") {
-    const w = equippedWeapon(sheet);
-    if (!w) return "%chWeapon%cn(none equipped)";
-    return `%chWeapon%cn(${w.name}, Dmg ${signed(w.damage)}, Init ${signed(w.initiative)})`;
+    const wi = await equippedWeaponEntry(u, sheet.equipment?.equippedWeapon ?? null);
+    if (!wi) return "%chWeapon%cn(none equipped)";
+    return `%chWeapon%cn(${displayName(wi.obj)}, Dmg ${signed(wi.entry.damage)}, Init ${signed(wi.entry.initiative)})`;
   }
   if (t === "armor") {
-    const a = equippedArmor(sheet);
-    if (!a) return "%chArmor%cn(none worn)";
-    return `%chArmor%cn(${a.name}, ${a.ratingGeneral}/${a.ratingBallistic}, ` +
-      `Def ${signed(a.defensePenalty)}, Spd ${signed(a.speedPenalty)})`;
+    const ai = await equippedArmorEntry(u, sheet.equipment?.equippedArmor ?? null);
+    if (!ai) return "%chArmor%cn(none worn)";
+    return `%chArmor%cn(${displayName(ai.obj)}, ${ai.entry.ratingGeneral}/${ai.entry.ratingBallistic}, ` +
+      `Def ${signed(ai.entry.defensePenalty)}, Spd ${signed(ai.entry.speedPenalty)})`;
   }
   if (t === "gear" || t === "inventory") {
-    const items = sheet.equipment?.items ?? [];
-    if (items.length === 0) return "%chGear%cn(empty)";
-    const names = items.map((it) => lookupItem(it.key)?.entry.name ?? it.key);
-    return `%chGear%cn(${names.join(", ")})`;
+    const inv = await inventoryItems(u, u.me.id);
+    if (inv.length === 0) return "%chGear%cn(empty)";
+    return `%chGear%cn(${inv.map(displayName).join(", ")})`;
   }
   return null;
 }
 
-function renderTrait(token: string, sheet: CofdSheet): string | null {
-  // Gear tokens take priority -- they're not numeric traits, so they short-
-  // circuit resolveTrait, which would otherwise return null and mark them
-  // skipped.
-  const gearLine = renderGearToken(token, sheet);
+async function renderTrait(
+  token: string,
+  sheet: CofdSheet,
+  u: import("@ursamu/ursamu").IUrsamuSDK,
+): Promise<string | null> {
+  const gearLine = await renderGearToken(token, sheet, u);
   if (gearLine) return gearLine;
-
   const resolved = resolveTrait(token, sheet);
   if (!resolved) return null;
-  if (resolved.specialty) {
-    return `%ch${resolved.label}%cn(${resolved.base}+1)`;
-  }
+  if (resolved.specialty) return `%ch${resolved.label}%cn(${resolved.base}+1)`;
   return `%ch${resolved.label}%cn(${resolved.value})`;
 }
 
@@ -111,7 +117,7 @@ export async function proveExec(u: IUrsamuSDK) {
   const rendered: string[] = [];
   const skipped: string[] = [];
   for (const token of traits) {
-    const out = renderTrait(token, sheet);
+    const out = await renderTrait(token, sheet, u);
     if (out) rendered.push(out);
     else skipped.push(token);
   }

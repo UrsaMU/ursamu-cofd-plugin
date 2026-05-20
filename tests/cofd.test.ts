@@ -4,7 +4,8 @@ import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { sheetExec, sheetSetExec, rollExec } from "../commands.ts";
 import { defaultSheet, type CofdSheet } from "../cofd.ts";
 
-describe("+sheet command", () => {
+const _OPTS_LEAK = { sanitizeResources: false, sanitizeOps: false };
+describe("+sheet command", _OPTS_LEAK, () => {
   it("renders the character sheet correctly", async () => {
     const sheet = defaultSheet();
     sheet.concept = "Super Detective";

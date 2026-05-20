@@ -25,7 +25,7 @@ export async function sheetExec(u: IUrsamuSDK) {
     return;
   }
 
-  const formatted = await formatSheet(u.util.displayName(target, u.me), sheet);
+  const formatted = await formatSheet(u.util.displayName(target, u.me), target.id, sheet, undefined, u);
   u.send(formatted);
 }
 

@@ -337,12 +337,17 @@ Switches:
   /list [<cat>]                          Catalog by category (weapons|ranged|melee|armor|mental|physical|social|services).
   /show <key>                            Full catalog entry for an item.
   /add <key>[/<note>] [for <player>]     Add an item to inventory.
-  /remove <#> [for <player>]             Remove inventory slot #.
+  /remove <#> [for <player>]             Discard inventory slot #.
   /equip <#> [for <player>]              Equip weapon or armor at slot #.
   /unequip <weapon|armor> [for <player>] Unequip a slot.
+  /drop <#> [for <player>]               Drop an unequipped item here.
+  /pickup <name|#>                       Pick up a dropped item from this room.
+  /give <#> to <player>                  Hand an inventory item to another player.
+  /reload [<#>] [for <player>]           Reload a firearm (equipped if no <#>).
 
 Equipped armor applies Defense and Speed penalties on the sheet.
 Equipped weapon damage adds to +roll/weapon successes on a hit.
+Firearms track their own ammo; firing decrements, /reload refills.
 Cross-player edits require canEdit (builder+).
 
 Examples:
@@ -351,7 +356,9 @@ Examples:
   +gear/show kevlar-vest         Show the Kevlar Vest entry.
   +gear/add pistol-light         Add a light pistol to your inventory.
   +gear/equip 1                  Equip slot 1.
-  +gear/unequip armor            Take off your armor.`,
+  +gear/reload                   Reload your equipped firearm.
+  +gear/drop 2                   Drop slot 2 in the current room.
+  +gear/give 1 to Marcus         Hand slot 1 to Marcus.`,
   exec: gearExec,
 });
 

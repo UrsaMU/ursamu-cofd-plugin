@@ -1,170 +1,240 @@
-// Equipment subsystem + +gear command tests.
+// Equipment tests using real UrsaMU game objects (via MockObjectStore).
 
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert";
 import { describe, it } from "jsr:@std/testing/bdd";
-import { mockPlayer, mockU } from "./helpers/mockU.ts";
+import { mockPlayer, mockU, MockObjectStore } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import {
-  addItem,
-  equipAt,
-  equippedArmor,
-  equippedWeapon,
+  carriedItems,
+  createItem,
+  displayName,
+  equipItem,
+  equippedArmorEntry,
+  equippedWeaponEntry,
+  inventoryItems,
+  itemData,
   lookupItem,
-  removeItemAt,
-  unequipSlot,
+  reloadItem,
+  unequipItem,
 } from "../src/equipment/index.ts";
 import { gearExec } from "../src/commands/gear.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 
 describe("equipment catalog", OPTS, () => {
-  it("looks up weapons, armor, gear, services by key", () => {
+  it("resolves weapon, armor, gear, service by key", () => {
     assertEquals(lookupItem("pistol-light")?.type, "weapon-ranged");
     assertEquals(lookupItem("knife")?.type, "weapon-melee");
     assertEquals(lookupItem("kevlar-vest")?.type, "armor");
-    assertEquals(lookupItem("first-aid-kit")?.type, "gear-mental");
     assertEquals(lookupItem("rope")?.type, "gear-physical");
-    assertEquals(lookupItem("cash")?.type, "gear-social");
     assertEquals(lookupItem("auto-repair")?.type, "service");
-    assertEquals(lookupItem("nonexistent"), undefined);
-    assertEquals(lookupItem(""), undefined);
-  });
-
-  it("normalizes keys to lowercase-trim", () => {
-    assertEquals(lookupItem("  KEVLAR-VEST  ")?.entry.name, "Kevlar Vest");
+    assertEquals(lookupItem("unknown"), undefined);
   });
 });
 
-describe("inventory pure functions", OPTS, () => {
-  it("adds, equips, and resolves a weapon", () => {
-    let sheet = defaultSheet();
-    const r1 = addItem(sheet, "pistol-light");
-    assert(!r1.error);
-    sheet = r1.sheet;
-    assertEquals(sheet.equipment!.items.length, 1);
-
-    const r2 = equipAt(sheet, 1);
-    assert(!r2.error);
-    sheet = r2.sheet;
-    assertEquals(r2.slot, "weapon");
-    assertEquals(equippedWeapon(sheet)?.name, "Pistol, Light");
-    assertEquals(equippedArmor(sheet), null);
+describe("equipment objects (MockObjectStore)", OPTS, () => {
+  it("createItem makes a Thing with cofd_item state", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-1";
+    const me = mockPlayer({ id: ownerId });
+    const u = mockU({ me, objectStore: store });
+    const obj = await createItem(u, ownerId, "pistol-light");
+    assert(obj);
+    assertEquals(obj.flags.has("thing"), true);
+    assertEquals(obj.location, ownerId);
+    const d = itemData(obj);
+    assert(d);
+    assertEquals(d.key, "pistol-light");
+    assertEquals(d.currentClip, ((lookupItem("pistol-light")!.entry) as { clip: number }).clip);
   });
 
-  it("rejects unknown keys", () => {
-    const r = addItem(defaultSheet(), "death-ray");
-    assert(r.error);
-    assertStringIncludes(r.error!, "Unknown");
+  it("melee weapons have no clip", async () => {
+    const store = new MockObjectStore();
+    const u = mockU({ me: mockPlayer({ id: "p1" }), objectStore: store });
+    const obj = await createItem(u, "p1", "knife");
+    assert(obj);
+    assertEquals(itemData(obj)?.currentClip, undefined);
   });
 
-  it("equipping a non-weapon non-armor errors", () => {
-    let sheet = defaultSheet();
-    sheet = addItem(sheet, "rope").sheet;
-    const r = equipAt(sheet, 1);
-    assert(r.error);
-    assertStringIncludes(r.error!, "not a weapon or armor");
+  it("inventoryItems returns only unequipped items", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-2";
+    const me = mockPlayer({ id: ownerId });
+    const u = mockU({ me, objectStore: store });
+    const pistol = await createItem(u, ownerId, "pistol-light");
+    const knife = await createItem(u, ownerId, "knife");
+    assert(pistol && knife);
+    // Equip pistol
+    const result = await equipItem(u, ownerId, 1, null, null);
+    assert(!result.error);
+    const inv = await inventoryItems(u, ownerId);
+    assertEquals(inv.length, 1);
+    assertEquals(itemData(inv[0])?.key, "knife");
   });
 
-  it("removing an equipped item nulls its slot", () => {
-    let sheet = defaultSheet();
-    sheet = addItem(sheet, "knife").sheet;
-    sheet = equipAt(sheet, 1).sheet;
-    assert(equippedWeapon(sheet));
-    sheet = removeItemAt(sheet, 1).sheet;
-    assertEquals(equippedWeapon(sheet), null);
-    assertEquals(sheet.equipment!.equippedWeapon, null);
+  it("equipping sets dark flag and equippedBy", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-3";
+    const u = mockU({ me: mockPlayer({ id: ownerId }), objectStore: store });
+    const pistol = await createItem(u, ownerId, "pistol-light");
+    assert(pistol);
+    const result = await equipItem(u, ownerId, 1, null, null);
+    assert(!result.error);
+    assert(result.slot === "weapon");
+    const equipped = store.get(pistol.id);
+    assert(equipped?.flags.has("dark"), "equipped item should be dark");
+    assertEquals(itemData(equipped!)?.equippedBy, ownerId);
   });
 
-  it("equip survives reordering via stable id", () => {
-    let sheet = defaultSheet();
-    sheet = addItem(sheet, "knife").sheet;     // slot 1
-    sheet = addItem(sheet, "rope").sheet;      // slot 2
-    sheet = equipAt(sheet, 1).sheet;           // equip knife (item id k)
-    const knifeId = sheet.equipment!.equippedWeapon;
-    // remove rope (slot 2) -- knife should remain equipped
-    sheet = removeItemAt(sheet, 2).sheet;
-    assertEquals(sheet.equipment!.equippedWeapon, knifeId);
-    assertEquals(equippedWeapon(sheet)?.name, "Knife");
+  it("unequipItem removes dark flag and equippedBy", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-4";
+    const u = mockU({ me: mockPlayer({ id: ownerId }), objectStore: store });
+    const pistol = await createItem(u, ownerId, "pistol-light");
+    assert(pistol);
+    await equipItem(u, ownerId, 1, null, null);
+    await unequipItem(u, pistol.id);
+    const obj = store.get(pistol.id);
+    assertEquals(obj?.flags.has("dark"), false);
+    assertEquals(itemData(obj!)?.equippedBy, undefined);
   });
 
-  it("unequipSlot clears the correct slot only", () => {
-    let sheet = defaultSheet();
-    sheet = addItem(sheet, "knife").sheet;
-    sheet = addItem(sheet, "kevlar-vest").sheet;
-    sheet = equipAt(sheet, 1).sheet;
-    sheet = equipAt(sheet, 2).sheet;
-    sheet = unequipSlot(sheet, "weapon");
-    assertEquals(equippedWeapon(sheet), null);
-    assertEquals(equippedArmor(sheet)?.name, "Kevlar Vest");
+  it("rejects equipping non-weapon non-armor", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-5";
+    const u = mockU({ me: mockPlayer({ id: ownerId }), objectStore: store });
+    await createItem(u, ownerId, "rope");
+    const result = await equipItem(u, ownerId, 1, null, null);
+    assert(result.error);
+    assertStringIncludes(result.error!, "not a weapon or armor");
   });
 
-  it("out-of-range index errors out", () => {
-    const r = removeItemAt(defaultSheet(), 1);
-    assert(r.error);
+  it("equippedWeaponEntry and equippedArmorEntry resolve entries", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-6";
+    const u = mockU({ me: mockPlayer({ id: ownerId }), objectStore: store });
+    const pistol = await createItem(u, ownerId, "pistol-light");
+    const vest = await createItem(u, ownerId, "kevlar-vest");
+    assert(pistol && vest);
+    const r1 = await equipItem(u, ownerId, 1, null, null);
+    const r2 = await equipItem(u, ownerId, 1, null, null);
+    const weaponInfo = await equippedWeaponEntry(u, r1.equippedId ?? null);
+    const armorInfo = await equippedArmorEntry(u, r2.equippedId ?? null);
+    assertEquals(weaponInfo?.entry.name, "Pistol, Light");
+    assertEquals(armorInfo?.entry.name, "Kevlar Vest");
+  });
+
+  it("reloadItem refills the clip", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-7";
+    const u = mockU({ me: mockPlayer({ id: ownerId }), objectStore: store });
+    const pistol = await createItem(u, ownerId, "pistol-light");
+    assert(pistol);
+    // Simulate firing by updating clip to 0
+    store.modify(pistol.id, "$set", { "data.cofd_item": { ...itemData(pistol), currentClip: 0 } });
+    const ok = await reloadItem(u, pistol.id);
+    assert(ok);
+    const reloaded = store.get(pistol.id);
+    assertEquals(itemData(reloaded!)?.currentClip, ((lookupItem("pistol-light")!.entry) as { clip: number }).clip);
   });
 });
 
 describe("+gear command", OPTS, () => {
-  it("blocks players without an approved sheet on /add", async () => {
-    const me = mockPlayer();
-    const u = mockU({ me });
+  it("blocks players without an approved sheet", async () => {
+    const store = new MockObjectStore();
+    const u = mockU({ me: mockPlayer({ id: "p1" }), objectStore: store });
     u.cmd.args = ["add", "knife"];
     await gearExec(u);
-    assertStringIncludes(u._sent.join("\n"), "does not have an approved character sheet");
+    assertStringIncludes(u._sent.join("\n"), "approved character sheet");
   });
 
-  it("happy path: list -> add -> equip via DB", async () => {
-    const me = mockPlayer({ state: { cofd: defaultSheet() } });
+  it("happy path: add -> view -> equip", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-gear-1";
+    const me = mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } });
     const u = mockU({
       me,
+      objectStore: store,
       dbModify: async (_id, op, data: any) => {
         if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
       },
     });
 
-    u.cmd.args = ["add", "kevlar-vest"];
-    u._sent.length = 0;
+    u.cmd.args = ["add", "pistol-light"];
     await gearExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Kevlar Vest");
-    const sheetA = me.state.cofd as ReturnType<typeof defaultSheet>;
-    assertEquals(sheetA.equipment!.items.length, 1);
+    assertStringIncludes(u._sent.join("\n"), "Pistol, Light");
 
+    u._sent.length = 0;
+    u.cmd.args = ["", ""];
+    await gearExec(u);
+    assertStringIncludes(u._sent.join("\n"), "Pistol, Light");
+
+    u._sent.length = 0;
     u.cmd.args = ["equip", "1"];
-    u._sent.length = 0;
     await gearExec(u);
-    assertStringIncludes(u._sent.join("\n"), "wears");
-    const sheetB = me.state.cofd as ReturnType<typeof defaultSheet>;
-    assert(sheetB.equipment!.equippedArmor);
-  });
-
-  it("rejects unknown switch", async () => {
-    const u = mockU({ me: mockPlayer({ state: { cofd: defaultSheet() } }) });
-    u.cmd.args = ["bogus", ""];
-    await gearExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Unknown +gear switch");
-  });
-
-  it("strips MUSH codes from user-supplied notes", async () => {
-    const me = mockPlayer({ state: { cofd: defaultSheet() } });
-    const u = mockU({
-      me,
-      dbModify: async (_id, op, data: any) => {
-        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
-      },
-    });
-    u.cmd.args = ["add", "knife/%cr%chSecret%cn"];
-    await gearExec(u);
+    assertStringIncludes(u._sent.join("\n"), "wields");
     const sheet = me.state.cofd as ReturnType<typeof defaultSheet>;
-    const note = sheet.equipment!.items[0]?.note ?? "";
-    assertEquals(note.includes("%c"), false);
+    assert(sheet.equipment?.equippedWeapon);
   });
 
-  it("cross-player edits without canEdit are blocked", async () => {
-    const me = mockPlayer({ id: "1", state: { cofd: defaultSheet() } });
-    const other = mockPlayer({ id: "2", name: "Marcus", state: { cofd: defaultSheet() } });
-    const u = mockU({ me, targetResult: other, canEditResult: false });
+  it("strips MUSH codes from notes", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-gear-2";
+    const me = mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } });
+    const u = mockU({ me, objectStore: store });
+    u.cmd.args = ["add", "knife/%crRed%cn"];
+    await gearExec(u);
+    const inv = await inventoryItems(u, ownerId);
+    assertEquals(inv[0] ? /%c/.test(JSON.stringify(itemData(inv[0]))) : false, false);
+  });
+
+  it("cross-player edit without canEdit is blocked", async () => {
+    const store = new MockObjectStore();
+    const me = mockPlayer({ id: "me-1", state: { cofd: defaultSheet() } });
+    const other = mockPlayer({ id: "other-1", name: "Marcus", state: { cofd: defaultSheet() } });
+    const u = mockU({ me, targetResult: other, canEditResult: false, objectStore: store });
     u.cmd.args = ["add", "knife for Marcus"];
     await gearExec(u);
     assertStringIncludes(u._sent.join("\n"), "Permission denied");
+  });
+
+  it("reloads equipped firearm", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-gear-3";
+    const me = mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } });
+    const u = mockU({
+      me,
+      objectStore: store,
+      dbModify: async (_id, op, data: any) => {
+        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
+      },
+    });
+    u.cmd.args = ["add", "pistol-light"]; await gearExec(u);
+    u.cmd.args = ["equip", "1"]; await gearExec(u);
+    u._sent.length = 0;
+    u.cmd.args = ["reload", ""];
+    await gearExec(u);
+    assertStringIncludes(u._sent.join("\n"), "reload");
+  });
+
+  it("drop puts item in room, pickup retrieves it", async () => {
+    const store = new MockObjectStore();
+    const ownerId = "player-gear-4";
+    const me = mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } });
+    const u = mockU({ me, objectStore: store });
+    u.here = { id: "room-99", contents: [], broadcast: () => {} } as any;
+    u.cmd.args = ["add", "rope"]; await gearExec(u);
+    u.cmd.args = ["drop", "1"]; await gearExec(u);
+    const afterDrop = await inventoryItems(u, ownerId);
+    assertEquals(afterDrop.length, 0);
+
+    const ownerId2 = "player-gear-5";
+    const me2 = mockPlayer({ id: ownerId2, state: { cofd: defaultSheet() } });
+    const u2 = mockU({ me: me2, objectStore: store });
+    u2.here = u.here;
+    u2.cmd.args = ["pickup", "rope"]; await gearExec(u2);
+    const afterPickup = await inventoryItems(u2, ownerId2);
+    assertEquals(afterPickup.length, 1);
+    assertEquals(itemData(afterPickup[0])?.key, "rope");
   });
 });

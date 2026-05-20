@@ -11,7 +11,7 @@
 import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
-import { equippedWeapon } from "../equipment/index.ts";
+import { equippedWeaponEntry } from "../equipment/index.ts";
 
 export async function rollExec(u: IUrsamuSDK) {
   const swRaw = (u.cmd.args[0] ?? "").toLowerCase().trim();
@@ -79,7 +79,8 @@ export async function rollExec(u: IUrsamuSDK) {
   let weaponBonus = 0;
   let weaponName: string | null = null;
   if (useWeapon) {
-    const w = equippedWeapon(sheet);
+    const wi = await equippedWeaponEntry(u, sheet.equipment?.equippedWeapon ?? null);
+    const w = wi?.entry ?? null;
     if (!w) {
       u.send("Error: No weapon equipped. Use +gear/equip <#> first.");
       return;

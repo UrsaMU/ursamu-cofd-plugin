@@ -23,6 +23,7 @@ function makeContext(sheet: CofdSheet, templateKey = sheet.template): SheetConte
   const template = COFD_TEMPLATES[templateKey] ?? COFD_TEMPLATES.mortal;
   return {
     playerName: "Test",
+    actorId: "test-actor",
     sheet,
     template,
     width: 80,

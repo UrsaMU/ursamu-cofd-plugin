@@ -6,7 +6,8 @@ import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import { resolveTrait } from "../src/roller/index.ts";
 import { proveExec } from "../src/commands/prove.ts";
-import { addItem, equipAt } from "../src/equipment/index.ts";
+import { createItem, equipItem } from "../src/equipment/index.ts";
+import { MockObjectStore } from "./helpers/mockU.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 
@@ -152,62 +153,76 @@ describe("+prove command", OPTS, () => {
   });
 
   it("proves equipped weapon with damage and initiative", async () => {
+    const store = new MockObjectStore();
+    const ownerId = `owner-${crypto.randomUUID()}`;
     let sheet = defaultSheet();
-    sheet = addItem(sheet, "pistol-light").sheet;
-    sheet = equipAt(sheet, 1).sheet;
-    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    const u = mockU({ me: mockPlayer({ id: ownerId, state: { cofd: sheet } }), objectStore: store });
+    await createItem(u, ownerId, "pistol-light");
+    const r = await equipItem(u, ownerId, 1, null, null);
+    sheet = { ...sheet, equipment: { equippedWeapon: r.equippedId ?? null, equippedArmor: null } };
+    u.me.state.cofd = sheet;
     u.cmd.args = ["", "weapon"];
     await proveExec(u);
-    const out = u._sent.join("\n");
-    assertStringIncludes(out, "Pistol, Light");
-    assertStringIncludes(out, "Dmg +1");
+    assertStringIncludes(u._sent.join("\n"), "Pistol, Light");
+    assertStringIncludes(u._sent.join("\n"), "Dmg +1");
   });
 
   it("proves equipped armor with rating and penalties", async () => {
+    const store = new MockObjectStore();
+    const ownerId = `owner-${crypto.randomUUID()}`;
     let sheet = defaultSheet();
-    sheet = addItem(sheet, "flak-jacket").sheet;
-    sheet = equipAt(sheet, 1).sheet;
-    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    const u = mockU({ me: mockPlayer({ id: ownerId, state: { cofd: sheet } }), objectStore: store });
+    await createItem(u, ownerId, "flak-jacket");
+    const r = await equipItem(u, ownerId, 1, null, null);
+    sheet = { ...sheet, equipment: { equippedWeapon: null, equippedArmor: r.equippedId ?? null } };
+    u.me.state.cofd = sheet;
     u.cmd.args = ["", "armor"];
     await proveExec(u);
-    const out = u._sent.join("\n");
-    assertStringIncludes(out, "Flak Jacket");
-    assertStringIncludes(out, "2/4");
-    assertStringIncludes(out, "Def -1");
+    assertStringIncludes(u._sent.join("\n"), "Flak Jacket");
+    assertStringIncludes(u._sent.join("\n"), "2/4");
+    assertStringIncludes(u._sent.join("\n"), "Def -1");
   });
 
   it("proves gear inventory list", async () => {
-    let sheet = defaultSheet();
-    sheet = addItem(sheet, "knife").sheet;
-    sheet = addItem(sheet, "rope").sheet;
-    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    const store = new MockObjectStore();
+    const ownerId = `owner-${crypto.randomUUID()}`;
+    const sheet = defaultSheet();
+    const u = mockU({ me: mockPlayer({ id: ownerId, state: { cofd: sheet } }), objectStore: store });
+    await createItem(u, ownerId, "knife");
+    await createItem(u, ownerId, "rope");
     u.cmd.args = ["", "gear"];
     await proveExec(u);
-    const out = u._sent.join("\n");
-    assertStringIncludes(out, "Knife");
-    assertStringIncludes(out, "Rope");
+    assertStringIncludes(u._sent.join("\n"), "Knife");
+    assertStringIncludes(u._sent.join("\n"), "Rope");
   });
 
   it("reports 'none' for unequipped slots gracefully", async () => {
-    const u = mockU({ me: mockPlayer({ state: { cofd: defaultSheet() } }) });
+    const store = new MockObjectStore();
+    const ownerId = `owner-${crypto.randomUUID()}`;
+    const u = mockU({
+      me: mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } }),
+      objectStore: store,
+    });
     u.cmd.args = ["", "weapon,armor"];
     await proveExec(u);
-    const out = u._sent.join("\n");
-    assertStringIncludes(out, "none equipped");
-    assertStringIncludes(out, "none worn");
+    assertStringIncludes(u._sent.join("\n"), "none equipped");
+    assertStringIncludes(u._sent.join("\n"), "none worn");
   });
 
   it("mixes gear tokens with attribute traits", async () => {
+    const store = new MockObjectStore();
+    const ownerId = `owner-${crypto.randomUUID()}`;
     let sheet = defaultSheet();
     sheet.attributes.strength = 3;
-    sheet = addItem(sheet, "knife").sheet;
-    sheet = equipAt(sheet, 1).sheet;
-    const u = mockU({ me: mockPlayer({ state: { cofd: sheet } }) });
+    const u = mockU({ me: mockPlayer({ id: ownerId, state: { cofd: sheet } }), objectStore: store });
+    await createItem(u, ownerId, "knife");
+    const r = await equipItem(u, ownerId, 1, null, null);
+    sheet = { ...sheet, equipment: { equippedWeapon: r.equippedId ?? null, equippedArmor: null } };
+    u.me.state.cofd = sheet;
     u.cmd.args = ["", "strength, weapon"];
     await proveExec(u);
-    const out = u._sent.join("\n");
-    assertStringIncludes(out, "Strength");
-    assertStringIncludes(out, "Knife");
+    assertStringIncludes(u._sent.join("\n"), "Strength");
+    assertStringIncludes(u._sent.join("\n"), "Knife");
   });
 
   it("strips MUSH codes from input", async () => {

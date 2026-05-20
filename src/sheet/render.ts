@@ -25,13 +25,15 @@ const WIDTH = 78;
  */
 export async function formatSheet(
   playerName: string,
+  actorId: string,
   sheet: CofdSheet,
   sections: SheetSection[] = defaultSections,
+  u?: import("@ursamu/ursamu").IUrsamuSDK,
 ): Promise<string> {
   sheet = migrateSheet(sheet);
   const tKey = sheet.template.toLowerCase().trim();
   const template = COFD_TEMPLATES[tKey] || COFD_TEMPLATES.mortal;
-  const ctx: SheetContext = { playerName, sheet, template, width: WIDTH };
+  const ctx: SheetContext = { playerName, actorId, sheet, template, width: WIDTH, u };
 
   const lines: string[] = [];
   for (const section of sections) {

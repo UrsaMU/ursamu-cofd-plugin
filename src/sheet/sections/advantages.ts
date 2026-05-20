@@ -5,7 +5,7 @@
 
 import { divider } from "@ursamu/ursamu";
 import { formatDottedLine, formatDottedStatLine } from "../../support/format.ts";
-import { equippedArmor } from "../../equipment/index.ts";
+import { equippedArmorEntry } from "../../equipment/index.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 
 const SEP = "  ";
@@ -31,7 +31,10 @@ export const advantagesSection: SheetSection = {
     const baseSpeed = (atts.strength || 1) + (atts.dexterity || 1) + 5;
     const baseDefense = Math.min(atts.dexterity || 1, atts.wits || 1) + (sks.athletics || 0);
     // Armor: Defense floors at 0; Speed has no floor (CoFD core p.97).
-    const armor = equippedArmor(sheet);
+    const armorInfo = ctx.u
+      ? await equippedArmorEntry(ctx.u, sheet.equipment?.equippedArmor ?? null)
+      : null;
+    const armor = armorInfo?.entry ?? null;
     const defense = armor ? Math.max(0, baseDefense + armor.defensePenalty) : baseDefense;
     const speed = armor ? baseSpeed + armor.speedPenalty : baseSpeed;
 
