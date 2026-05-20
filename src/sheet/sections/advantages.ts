@@ -4,7 +4,7 @@
 // Row 3 (if applicable): <Power Stat> | <Energy pool current/max> | empty
 
 import { divider } from "@ursamu/ursamu";
-import { formatDottedLine } from "../../support/format.ts";
+import { formatDottedLine, formatDottedStatLine } from "../../support/format.ts";
 import type { SheetSection, SheetContext } from "./types.ts";
 
 const SEP = "  ";
@@ -24,7 +24,8 @@ export const advantagesSection: SheetSection = {
 
     lines.push(await divider("A D V A N T A G E S"));
 
-    const willpower = `${sheet.advantages.willpowerCurrent}/${sheet.advantages.willpowerMax}`;
+    const wpCur = sheet.advantages.willpowerCurrent;
+    const wpMax = sheet.advantages.willpowerMax;
     const initiative = (atts.dexterity || 1) + (atts.composure || 1);
     const speed = (atts.strength || 1) + (atts.dexterity || 1) + 5;
     const defense = Math.min(atts.dexterity || 1, atts.wits || 1) + (sks.athletics || 0);
@@ -33,7 +34,7 @@ export const advantagesSection: SheetSection = {
       "  " + a + SEP + b + SEP + c;
 
     lines.push(row(
-      formatDottedLine("Willpower",       willpower,                       cw),
+      formatDottedStatLine("Willpower",   wpCur, wpMax,                    cw),
       formatDottedLine(tmpl.moralityName, String(sheet.moralityValue),     cw),
       formatDottedLine("Size",            String(sheet.advantages.size),   cw),
     ));
@@ -46,8 +47,8 @@ export const advantagesSection: SheetSection = {
     if (tmpl.powerStatName !== "None" || tmpl.energyName !== "None") {
       const energyMax = tmpl.energyMaxFormula(sheet.powerStatValue);
       lines.push(row(
-        formatDottedLine(tmpl.powerStatName, String(sheet.powerStatValue),         cw),
-        formatDottedLine(tmpl.energyName,    `${sheet.energyCurrent}/${energyMax}`, cw),
+        formatDottedLine(tmpl.powerStatName, String(sheet.powerStatValue), cw),
+        formatDottedStatLine(tmpl.energyName, sheet.energyCurrent, energyMax, cw),
         emptyCell(cw),
       ));
     }
