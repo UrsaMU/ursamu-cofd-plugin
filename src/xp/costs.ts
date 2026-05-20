@@ -8,6 +8,7 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import type { CofdSheet } from "../stats/sheet.ts";
@@ -74,7 +75,10 @@ export function categorizeTrait(traitName: string, sheet: CofdSheet): string | n
 
   if (COFD_ATTRIBUTES.includes(key)) return "attribute";
   if (COFD_SKILLS.includes(key)) return "skill";
-  if (COFD_MERITS.find(m => m.key === key)) return "merit";
+
+  // Merits — accept qualified form: language(spanish), contacts:police.
+  const meritRef = parseMeritRef(key);
+  if (COFD_MERITS.find(m => m.key === meritRef.merit)) return "merit";
 
   if (key === "willpower") return "willpower";
 

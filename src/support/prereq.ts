@@ -4,6 +4,7 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";
@@ -31,8 +32,9 @@ export function checkPrerequisites(prereqs: string[], sheet: CofdSheet): { valid
       continue;
     }
 
-    // 2. Standard comparison matching key op value
-    const match = clean.match(/^([a-z0-9 ]+?)\s*(>=|>|<=|<|==|=)\s*(.+)$/);
+    // 2. Standard comparison matching key op value. Key may carry a
+    //    `(qualifier)` or `:qualifier` suffix for instanced merits.
+    const match = clean.match(/^([a-z0-9 ]+?(?:\([^)]+\)|:[a-z0-9 -]+)?)\s*(>=|>|<=|<|==|=)\s*(.+)$/);
     if (match) {
       const key = match[1].trim();
       const op = match[2];
@@ -53,15 +55,29 @@ export function checkPrerequisites(prereqs: string[], sheet: CofdSheet): { valid
       const valInt = parseInt(valStr, 10);
       let actualValue = 0;
 
-      // Trait search priority:
+      // Trait search priority. Merits may be qualified: language(spanish).
+      const meritRef = parseMeritRef(key);
+      const meritIsKnown = COFD_MERITS.some(m => m.key === meritRef.merit);
+
       if (COFD_ATTRIBUTES.includes(key)) {
         actualValue = sheet.attributes[key] || 1;
       } else if (COFD_SKILLS.includes(key)) {
         actualValue = sheet.skills[key] || 0;
-      } else if (sheet.merits && sheet.merits[key] !== undefined) {
-        actualValue = sheet.merits[key];
-      } else if (COFD_MERITS.some(m => m.key === key)) {
-        actualValue = sheet.merits[key] || 0;
+      } else if (meritIsKnown) {
+        // Qualified form: exact match on "merit:qualifier".
+        // Bare form: take the highest rating across any instance of this merit.
+        if (meritRef.qualifier) {
+          actualValue = sheet.merits[meritRef.storageKey] || 0;
+        } else {
+          let best = sheet.merits[meritRef.merit] || 0;
+          for (const k of Object.keys(sheet.merits || {})) {
+            if (k === meritRef.merit) continue;
+            if (k.startsWith(meritRef.merit + ":")) {
+              best = Math.max(best, sheet.merits[k] || 0);
+            }
+          }
+          actualValue = best;
+        }
       } else if (sheet.powers && sheet.powers[key] !== undefined) {
         actualValue = sheet.powers[key];
       } else if (tmpl.validPowers && tmpl.validPowers.includes(key)) {

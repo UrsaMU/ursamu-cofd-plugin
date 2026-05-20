@@ -4,6 +4,7 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import {
@@ -85,7 +86,10 @@ export function updateCgState(cgState: CofdCgState, trait: string, val: string):
       break;
 
     case 6: {
-      const meritDef = COFD_MERITS.find(m => m.key === key);
+      // Merits may be qualified ("language(spanish)"). Match on the merit
+      // portion of the key, not the full storage key.
+      const meritRef = parseMeritRef(key);
+      const meritDef = COFD_MERITS.find(m => m.key === meritRef.merit);
       const isPower = tmpl.validPowers.includes(key);
       if (!meritDef && !isPower) {
         throw new Error(`In Stage 6, you can only allocate starting powers (${tmpl.validPowers.join(", ")}) or merits.`);

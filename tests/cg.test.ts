@@ -174,10 +174,13 @@ describe("Chronicles of Darkness Guided Character Generation", () => {
     await cgExec(u);
     assertStringIncludes(u._sent.join("\n"), "Successfully set cg trait 'giant' to '4'");
 
-    u.cmd.args = ["set", "mentor=3"];
+    u.cmd.args = ["set", "mentor(eldritch master)=3"];
     u._sent.length = 0;
     await cgExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Successfully set cg trait 'mentor' to '3'");
+    assertStringIncludes(
+      u._sent.join("\n"),
+      "Successfully set cg trait 'mentor(eldritch master)' to '3'",
+    );
 
     // Submit Stage 6 -> Complete!
     u.cmd.args = ["submit", ""];

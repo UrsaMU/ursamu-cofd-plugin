@@ -4,6 +4,7 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { migrateSheet, refreshAdvantages, type CofdSheet } from "./sheet.ts";
@@ -43,14 +44,15 @@ export function setTrait(sheet: CofdSheet, trait: string, value: string | number
     return sheet;
   }
 
-  // Set Merits
-  const meritDef = COFD_MERITS.find(m => m.key === key);
+  // Set Merits (with optional qualifier: language(spanish), contacts:police, etc.)
+  const meritRef = parseMeritRef(trait);
+  const meritDef = COFD_MERITS.find(m => m.key === meritRef.merit);
   if (meritDef) {
     const valInt = value as number;
     if (valInt === 0) {
-      delete sheet.merits[key];
+      delete sheet.merits[meritRef.storageKey];
     } else {
-      sheet.merits[key] = valInt;
+      sheet.merits[meritRef.storageKey] = valInt;
     }
     return sheet;
   }

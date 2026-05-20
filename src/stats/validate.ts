@@ -4,6 +4,7 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { checkPrerequisites } from "../support/prereq.ts";
@@ -33,8 +34,9 @@ export function validateTraitValue(trait: string, valueStr: string, sheet?: Cofd
     if (COFD_SKILLS.includes(key)) {
       return 0;
     }
-    const meritDef = COFD_MERITS.find(m => m.key === key);
-    if (meritDef) {
+    // Reset path: accept `merit(qualifier)=` for instanced merits too.
+    const resetRef = parseMeritRef(trait);
+    if (COFD_MERITS.find(m => m.key === resetRef.merit)) {
       return 0;
     }
     if (tmpl.validPowers.includes(key)) {
@@ -89,9 +91,16 @@ export function validateTraitValue(trait: string, valueStr: string, sheet?: Cofd
     return valInt;
   }
 
-  // Merits check
-  const meritDef = COFD_MERITS.find(m => m.key === key);
+  // Merits check (supports qualified instances: language(spanish), contacts:police)
+  const meritRef = parseMeritRef(trait);
+  const meritDef = COFD_MERITS.find(m => m.key === meritRef.merit);
   if (meritDef) {
+    if (meritDef.instanced && !meritRef.qualifier) {
+      throw new Error(`Merit '${meritDef.name}' requires a qualifier — e.g. ${meritDef.key}(spanish).`);
+    }
+    if (!meritDef.instanced && meritRef.qualifier) {
+      throw new Error(`Merit '${meritDef.name}' does not take a qualifier.`);
+    }
     if (valInt === 0) {
       return 0;
     }

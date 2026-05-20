@@ -19,7 +19,12 @@ Settable traits:
   Attributes    9 CoFD attributes, 1-5
   Skills        24 CoFD skills, 0-5
   Specialties   specialty/<skill>=<name>
-  Merits        by merit key (rating must be a valid dot for that merit)
+  Merits        by merit key. Instanced merits (Language, Contacts,
+                Status, Allies, Mentor, etc.) take a qualifier:
+                  +sheet/set language(spanish)=1
+                  +sheet/set contacts(police)=2
+                Multiple qualifiers under the same merit stack as
+                separate purchases.
   Morality      humanity, harmony, wisdom, clarity, or integrity
   Power Stat    blood potency (bp), gnosis, wyrd, primal urge (pu)
   Energy        vitae, essence, mana, glamour

@@ -9,6 +9,7 @@ import { setTrait } from "../stats/setter.ts";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { categorizeTrait, getCost, XP_COSTS } from "./costs.ts";
+import { parseMeritRef } from "../dictionary/index.ts";
 
 export interface SpendResult {
   sheet?: CofdSheet;
@@ -27,8 +28,11 @@ function currentDots(sheet: CofdSheet, key: string, category: string): number {
       return sheet.attributes[key] ?? 0;
     case "skill":
       return sheet.skills[key] ?? 0;
-    case "merit":
-      return sheet.merits[key] ?? 0;
+    case "merit": {
+      // Look up by qualified storage key (language:spanish) when present.
+      const ref = parseMeritRef(key);
+      return sheet.merits[ref.storageKey] ?? 0;
+    }
     case "supernatural-power":
       return sheet.powers[key] ?? 0;
     case "power-stat":
