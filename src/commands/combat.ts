@@ -6,15 +6,59 @@ import {
   addParticipant,
   advanceTurn,
   applyDefense,
+  clearPin,
   createEncounter,
+  delayCurrent,
   encounterDb,
   getEncounterForRoom,
+  reclaimDelayed,
   removeParticipant,
   roll1d10,
   rollInitiative,
+  setBeatenDown,
+  setMoved,
+  setParticipantConcealment,
+  setParticipantCover,
+  setRan,
+  setSurrendered,
 } from "../combat/encounter.ts";
-import type { CofdSheet } from "../stats/index.ts";
+import { computeDefense } from "../combat/pools.ts";
+import { type CofdSheet, defaultSheet } from "../stats/index.ts";
 import type { Encounter } from "../combat/types.ts";
+
+const COVER_LEVELS: Record<string, number> = {
+  none: 0,
+  partial: 1,
+  substantial: 2,
+  full: 3,
+};
+
+const CONCEAL_LEVELS: Record<string, number> = {
+  none: 0,
+  light: 1,
+  medium: 2,
+  heavy: 3,
+};
+
+function coverLabel(v: number | undefined): string {
+  switch (v ?? 0) {
+    case 0: return "none";
+    case 1: return "partial (Dur 1)";
+    case 2: return "substantial (Dur 2)";
+    case 3: return "full (Dur 3)";
+    default: return `Dur ${v}`;
+  }
+}
+
+function concealLabel(v: number | undefined): string {
+  switch (v ?? 0) {
+    case 0: return "none";
+    case 1: return "light (-1)";
+    case 2: return "medium (-2)";
+    case 3: return "heavy (-3)";
+    default: return `-${v}`;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,6 +75,9 @@ function renderOrder(enc: Encounter): string {
     const flags: string[] = [];
     if (p.isDodging) flags.push("Dodge");
     if (p.isOut) flags.push("Incap");
+    if (p.delayed) flags.push("Delayed");
+    if (p.actionUsed) flags.push("Acted");
+    if (p.ran) flags.push("Ran");
     const tag = flags.length ? ` (${flags.join(", ")})` : "";
     lines.push(
       `  ${marker} ${String(p.initiative).padStart(3)}  ${pad(p.name, 20)}${tag}`,
@@ -50,11 +97,37 @@ function splitForTarget(rest: string): { body: string; targetName: string } {
 // Sub-command handlers
 // ---------------------------------------------------------------------------
 
-async function combatStatus(u: IUrsamuSDK) {
+async function combatStatus(u: IUrsamuSDK, rest = "") {
   const roomId = u.here?.id;
   if (!roomId) { u.send("You are not in a room."); return; }
   const enc = await getEncounterForRoom(roomId);
   if (!enc) { u.send("No active encounter in this room. Use +combat/start to begin one."); return; }
+
+  const arg = rest.trim();
+  if (arg) {
+    const target = await u.util.target(u.me, arg, true);
+    if (!target) { u.send(`No player matches '${arg}'.`); return; }
+    const p = enc.participants.find((x) => x.actorId === target.id);
+    if (!p) {
+      u.send(`${u.util.displayName(target, u.me)} is not in this encounter.`);
+      return;
+    }
+    const sheet = (target.state?.cofd as CofdSheet | undefined) ?? defaultSheet();
+    const baseDef = computeDefense(sheet);
+    const effDef = Math.max(0, baseDef - p.appliedDefense);
+    const lines: string[] = [];
+    lines.push(await divider("C O M B A T   S T A T U S"));
+    lines.push(`  Participant:   ${p.name}`);
+    lines.push(`  Initiative:    ${p.initiative}`);
+    lines.push(`  Defense:       ${effDef} (base ${baseDef}, applied ${p.appliedDefense})`);
+    lines.push(`  Dodging:       ${p.isDodging ? "yes" : "no"}`);
+    lines.push(`  Cover:         ${coverLabel(p.cover)}`);
+    lines.push(`  Concealment:   ${concealLabel(p.concealment)}`);
+    if (p.isOut) lines.push("  Incapacitated: yes");
+    u.send(lines.join("\n"));
+    return;
+  }
+
   const lines: string[] = [];
   lines.push(await divider("C O M B A T"));
   lines.push(`  Status: ${enc.status}  Round: ${enc.round}`);
@@ -64,6 +137,86 @@ async function combatStatus(u: IUrsamuSDK) {
     lines.push(renderOrder(enc));
   }
   u.send(lines.join("\n"));
+}
+
+async function combatCover(u: IUrsamuSDK, rest: string) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc) { u.send("No encounter here. Use +combat/start first."); return; }
+
+  const { body, targetName } = splitForTarget(rest);
+  const level = body.toLowerCase().trim();
+  if (!level) {
+    u.send("Usage: +combat/cover [partial|substantial|full|none] [for <player>]");
+    return;
+  }
+  if (!(level in COVER_LEVELS)) {
+    u.send(`Unknown cover level '${level}'. Use partial, substantial, full, or none.`);
+    return;
+  }
+  let actor = u.me;
+  if (targetName) {
+    const found = await u.util.target(u.me, targetName, true);
+    if (!found) { u.send(`No player matches '${targetName}'.`); return; }
+    if (!(await u.canEdit(u.me, found))) {
+      u.send("Permission denied. You cannot declare cover for another player.");
+      return;
+    }
+    actor = found;
+  }
+  if (!enc.participants.some((p) => p.actorId === actor.id)) {
+    u.send(`${actor.id === u.me.id ? "You are" : `${u.util.displayName(actor, u.me)} is`} not a participant in this encounter.`);
+    return;
+  }
+  const value = COVER_LEVELS[level];
+  await setParticipantCover(enc.id, actor.id, value);
+  const who = actor.id === u.me.id ? "You take" : `${u.util.displayName(actor, u.me)} takes`;
+  if (value === 0) {
+    u.broadcast(`%cyCOVER>>%cn ${who} no cover.`);
+  } else {
+    u.broadcast(`%cyCOVER>>%cn ${who} ${level} cover (Durability ${value}).`);
+  }
+}
+
+async function combatConceal(u: IUrsamuSDK, rest: string) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc) { u.send("No encounter here. Use +combat/start first."); return; }
+
+  const { body, targetName } = splitForTarget(rest);
+  const level = body.toLowerCase().trim();
+  if (!level) {
+    u.send("Usage: +combat/conceal [light|medium|heavy|none] [for <player>]");
+    return;
+  }
+  if (!(level in CONCEAL_LEVELS)) {
+    u.send(`Unknown concealment level '${level}'. Use light, medium, heavy, or none.`);
+    return;
+  }
+  let actor = u.me;
+  if (targetName) {
+    const found = await u.util.target(u.me, targetName, true);
+    if (!found) { u.send(`No player matches '${targetName}'.`); return; }
+    if (!(await u.canEdit(u.me, found))) {
+      u.send("Permission denied. You cannot declare concealment for another player.");
+      return;
+    }
+    actor = found;
+  }
+  if (!enc.participants.some((p) => p.actorId === actor.id)) {
+    u.send(`${actor.id === u.me.id ? "You are" : `${u.util.displayName(actor, u.me)} is`} not a participant in this encounter.`);
+    return;
+  }
+  const value = CONCEAL_LEVELS[level];
+  await setParticipantConcealment(enc.id, actor.id, value);
+  const who = actor.id === u.me.id ? "You are" : `${u.util.displayName(actor, u.me)} is`;
+  if (value === 0) {
+    u.broadcast(`%cyCONCEAL>>%cn ${who} no longer concealed.`);
+  } else {
+    u.broadcast(`%cyCONCEAL>>%cn ${who} in ${level} concealment (-${value} to attackers).`);
+  }
 }
 
 async function combatStart(u: IUrsamuSDK) {
@@ -81,8 +234,11 @@ async function combatStart(u: IUrsamuSDK) {
 async function combatJoin(u: IUrsamuSDK, rest: string) {
   const roomId = u.here?.id;
   if (!roomId) { u.send("You are not in a room."); return; }
-  const enc = await getEncounterForRoom(roomId);
-  if (!enc) { u.send("No encounter here. Use +combat/start first."); return; }
+  let enc = await getEncounterForRoom(roomId);
+  if (!enc) {
+    enc = await createEncounter(roomId);
+    u.broadcast("%cyCombat is breaking out!%cn Use +combat/join to enter the fray, +combat/begin to roll initiative.");
+  }
 
   const { targetName } = splitForTarget(rest);
   let actor = u.me;
@@ -134,9 +290,14 @@ async function combatLeave(u: IUrsamuSDK, rest: string) {
 async function combatBegin(u: IUrsamuSDK) {
   const roomId = u.here?.id;
   if (!roomId) { u.send("You are not in a room."); return; }
-  const enc = await getEncounterForRoom(roomId);
-  if (!enc) { u.send("No encounter here. Use +combat/start first."); return; }
-  if (enc.participants.length === 0) {
+  let enc = await getEncounterForRoom(roomId);
+  if (!enc) {
+    enc = await createEncounter(roomId);
+    await addParticipant(enc.id, u.me);
+    enc = await getEncounterForRoom(roomId);
+    u.broadcast("%cyCombat is breaking out!%cn Others may join with +combat/join.");
+  }
+  if (!enc || enc.participants.length === 0) {
     u.send("No participants to roll initiative for. Use +combat/join.");
     return;
   }
@@ -160,9 +321,111 @@ async function combatNext(u: IUrsamuSDK) {
   const updated = await advanceTurn(enc.id);
   if (!updated) { u.send("Failed to advance turn."); return; }
   const cur = updated.participants[updated.turnIdx];
-  u.send(
-    `Round ${updated.round} -- It is now ${cur.name}'s turn (Initiative: ${cur.initiative}).`,
-  );
+  const msg =
+    `%cyTURN>>%cn Round ${updated.round} -- It is now ${cur.name}'s turn ` +
+    `(Initiative ${cur.initiative}).`;
+  u.send(msg);
+  u.broadcast(msg);
+}
+
+async function combatDelay(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc || enc.status !== "active") { u.send("No active encounter."); return; }
+  const cur = enc.participants[enc.turnIdx];
+  if (!cur || cur.actorId !== u.me.id) {
+    u.send("It is not your turn; only the current actor can delay.");
+    return;
+  }
+  if (cur.actionUsed) {
+    u.send("You already acted this turn; nothing left to delay.");
+    return;
+  }
+  const result = await delayCurrent(enc.id);
+  if (!result) { u.send("Failed to delay."); return; }
+  const name = cur.name;
+  const head = `%cyDELAY>>%cn ${name} holds their action.`;
+  u.send(head);
+  u.broadcast(head);
+  const next = result.encounter.participants[result.encounter.turnIdx];
+  if (next) {
+    const msg =
+      `%cyTURN>>%cn Round ${result.encounter.round} -- It is now ${next.name}'s turn ` +
+      `(Initiative ${next.initiative}).`;
+    u.send(msg);
+    u.broadcast(msg);
+  }
+}
+
+async function combatAct(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc || enc.status !== "active") { u.send("No active encounter."); return; }
+  const p = enc.participants.find((x) => x.actorId === u.me.id);
+  if (!p) { u.send("You are not in this encounter."); return; }
+  if (!p.delayed) { u.send("You are not holding an action."); return; }
+  const updated = await reclaimDelayed(enc.id, u.me.id);
+  if (!updated) { u.send("Failed to reclaim your delayed action."); return; }
+  const msg = `%cyACT>>%cn ${p.name} takes their held action. It is now their turn.`;
+  u.send(msg);
+  u.broadcast(msg);
+}
+
+async function combatMove(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc || enc.status !== "active") { u.send("No active encounter."); return; }
+  const cur = enc.participants[enc.turnIdx];
+  if (!cur || cur.actorId !== u.me.id) { u.send("It is not your turn."); return; }
+  if (cur.movedThisRound) { u.send("You already moved this round."); return; }
+  await setMoved(enc.id, u.me.id, true);
+  const sheet = u.me.state?.cofd as CofdSheet | undefined;
+  const attrs = (sheet?.attributes ?? {}) as Record<string, number>;
+  const str = attrs.strength ?? attrs.Strength ?? 1;
+  const dex = attrs.dexterity ?? attrs.Dexterity ?? 1;
+  const size = sheet?.advantages?.size ?? 5;
+  const speed = str + dex + size;
+  const msg = `%cyMOVE>>%cn ${cur.name} moves up to Speed ${speed} yards (free, no slot used).`;
+  u.send(msg);
+  u.broadcast(msg);
+}
+
+async function combatRun(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc || enc.status !== "active") { u.send("No active encounter."); return; }
+  const cur = enc.participants[enc.turnIdx];
+  if (!cur || cur.actorId !== u.me.id) { u.send("It is not your turn."); return; }
+  if (cur.actionUsed) { u.send("You already used your instant action this turn."); return; }
+  await setRan(enc.id, u.me.id, true);
+  const sheet = u.me.state?.cofd as CofdSheet | undefined;
+  const attrs = (sheet?.attributes ?? {}) as Record<string, number>;
+  const str = attrs.strength ?? attrs.Strength ?? 1;
+  const dex = attrs.dexterity ?? attrs.Dexterity ?? 1;
+  const size = sheet?.advantages?.size ?? 5;
+  const speed = str + dex + size;
+  const msg =
+    `%cyRUN>>%cn ${cur.name} sprints up to ${speed * 2} yards (consumes the instant action; -1 Defense).`;
+  u.send(msg);
+  u.broadcast(msg);
+}
+
+async function combatReflexive(u: IUrsamuSDK, rest: string) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc || enc.status !== "active") { u.send("No active encounter."); return; }
+  const p = enc.participants.find((x) => x.actorId === u.me.id);
+  if (!p) { u.send("You are not in this encounter."); return; }
+  const what = rest.trim();
+  if (!what) { u.send("Usage: +combat/reflexive <description>"); return; }
+  const msg = `%cyREFLEX>>%cn ${p.name}: ${what} (reflexive -- no slot used).`;
+  u.send(msg);
+  u.broadcast(msg);
 }
 
 async function combatEnd(u: IUrsamuSDK) {
@@ -173,6 +436,14 @@ async function combatEnd(u: IUrsamuSDK) {
   const resolved = { ...enc, status: "resolved" as const };
   // deno-lint-ignore no-explicit-any
   await encounterDb.update({ id: enc.id } as any, resolved);
+
+  // Clear the +aid once-per-scene cap for every participant. Scene boundary
+  // is "encounter end" for our purposes; +aid runs in scenes, not outside.
+  for (const p of enc.participants) {
+    // deno-lint-ignore no-explicit-any
+    await u.db.modify(p.actorId, "$unset", { "data.cofd.aidedThisScene": "" } as any);
+  }
+
   u.send("The encounter has ended. All participants are dismissed.");
 }
 
@@ -265,6 +536,75 @@ async function combatAmbush(u: IUrsamuSDK, rest: string) {
   u.send(lines.join("\n"));
 }
 
+async function combatRecover(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc) { u.send("No encounter here."); return; }
+  const me = enc.participants.find((p) => p.actorId === u.me.id);
+  if (!me) { u.send("You are not in this encounter."); return; }
+  if (!me.beatenDown) { u.send("You are not Beaten Down."); return; }
+
+  const sheet = u.me.state?.cofd as CofdSheet | undefined;
+  const wp = sheet?.advantages?.willpowerCurrent ?? 0;
+  if (wp < 1) { u.send("You have no Willpower left to recover."); return; }
+
+  await u.db.modify(u.me.id, "$set", {
+    "state.cofd": {
+      ...sheet,
+      advantages: { ...sheet!.advantages, willpowerCurrent: wp - 1 },
+    },
+  });
+  await setBeatenDown(enc.id, u.me.id, false);
+  const line = `%cy${u.me.name ?? "Someone"} spends Willpower and shakes off Beaten Down!%cn`;
+  u.send(line);
+  u.broadcast(line);
+}
+
+async function combatSurrender(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc) { u.send("No encounter here."); return; }
+  const me = enc.participants.find((p) => p.actorId === u.me.id);
+  if (!me) { u.send("You are not in this encounter."); return; }
+  await setSurrendered(enc.id, u.me.id, true);
+  const name = u.me.name ?? "Someone";
+  const head = `%cy${name} drops their guard and surrenders.%cn`;
+  const tail = "Attackers cannot target them without ST approval.";
+  u.send(head);
+  u.send(tail);
+  u.broadcast(head);
+  u.broadcast(tail);
+}
+
+async function combatBreakpin(u: IUrsamuSDK) {
+  const roomId = u.here?.id;
+  if (!roomId) { u.send("You are not in a room."); return; }
+  const enc = await getEncounterForRoom(roomId);
+  if (!enc) { u.send("No encounter here."); return; }
+  const me = enc.participants.find((p) => p.actorId === u.me.id);
+  if (!me) { u.send("You are not in this encounter."); return; }
+  if (!me.pinnedBy) { u.send("You are not pinned."); return; }
+
+  const sheet = u.me.state?.cofd as CofdSheet | undefined;
+  const wp = sheet?.advantages?.willpowerCurrent ?? 0;
+  if (wp < 1) {
+    u.send("You have no Willpower; you must instead spend your full turn breaking the pin.");
+    return;
+  }
+  await u.db.modify(u.me.id, "$set", {
+    "state.cofd": {
+      ...sheet,
+      advantages: { ...sheet!.advantages, willpowerCurrent: wp - 1 },
+    },
+  });
+  await clearPin(enc.id, u.me.id);
+  const line = `%cy${u.me.name ?? "Someone"} spends Willpower and shakes off the suppression.%cn`;
+  u.send(line);
+  u.broadcast(line);
+}
+
 // ---------------------------------------------------------------------------
 // Main dispatch
 // ---------------------------------------------------------------------------
@@ -279,9 +619,25 @@ export async function combatExec(u: IUrsamuSDK) {
     case "leave":  await combatLeave(u, rest);  return;
     case "begin":  await combatBegin(u);        return;
     case "next":   await combatNext(u);         return;
+    case "delay":
+    case "hold":   await combatDelay(u);        return;
+    case "act":
+    case "reclaim": await combatAct(u);         return;
+    case "move":   await combatMove(u);         return;
+    case "run":    await combatRun(u);          return;
+    case "reflex":
+    case "reflexive": await combatReflexive(u, rest); return;
     case "end":    await combatEnd(u);          return;
     case "order":  await combatOrder(u);        return;
     case "ambush": await combatAmbush(u, rest); return;
+    case "cover":  await combatCover(u, rest);  return;
+    case "conceal":
+    case "concealment":
+      await combatConceal(u, rest); return;
+    case "status": await combatStatus(u, rest); return;
+    case "recover":   await combatRecover(u);   return;
+    case "surrender": await combatSurrender(u); return;
+    case "breakpin":  await combatBreakpin(u);  return;
     default:       await combatStatus(u);       return;
   }
 }

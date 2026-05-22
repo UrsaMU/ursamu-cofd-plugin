@@ -12,6 +12,7 @@ import {
   type WeaponEntry,
 } from "../equipment/catalog.ts";
 import { itemData } from "../equipment/objects.ts";
+import { fastReflexesBonus } from "./modifiers.ts";
 
 // ---------------------------------------------------------------------------
 // DBO collection
@@ -148,8 +149,17 @@ export async function rollInitiative(
       }
 
       const die = roll1d10();
-      const initiative = die + dex + composure + weaponMod;
-      return { ...p, initiative };
+      const reflexes = fastReflexesBonus(sheet);
+      const initiative = die + dex + composure + weaponMod + reflexes;
+      return {
+        ...p,
+        initiative,
+        actionUsed: false,
+        delayed: false,
+        ran: false,
+        movedThisRound: false,
+        appliedDefense: 0,
+      };
     }),
   );
 
@@ -192,15 +202,39 @@ export async function advanceTurn(
   let round = enc.round;
   let participants = enc.participants;
 
+  // Mark the actor whose turn is ending so anyone else can later inspect.
+  // (We don't clear their per-turn flags here -- they're reset at round wrap.)
+
+  // Skip past any delayed actors (held action -- they re-enter via reclaim).
+  let safety = count + 1;
+  while (
+    safety-- > 0 &&
+    nextIdx < count &&
+    participants[nextIdx] &&
+    participants[nextIdx].delayed
+  ) {
+    nextIdx += 1;
+  }
+
   if (nextIdx >= count) {
     nextIdx = 0;
     round += 1;
-    // Reset per-round Defense and dodge state.
+    // Reset per-round Defense, dodge, pin, movement, and action-economy state.
     participants = participants.map((p) => ({
       ...p,
       appliedDefense: 0,
       isDodging: false,
+      pinnedBy: undefined,
+      movedThisRound: false,
+      actionUsed: false,
+      delayed: false,
+      ran: false,
     }));
+  } else {
+    // Clear the per-turn action-economy flags for the actor about to act.
+    participants = participants.map((p, i) =>
+      i === nextIdx ? { ...p, actionUsed: false, ran: false } : p
+    );
   }
 
   const updated: Encounter = { ...enc, participants, round, turnIdx: nextIdx };
@@ -243,9 +277,241 @@ export async function setDodge(
   return updated;
 }
 
+/** Clamp a cover/concealment value to 0..3. Negative/NaN coerce to 0. */
+function clamp03(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  if (n < 0) return 0;
+  if (n > 3) return 3;
+  return Math.floor(n);
+}
+
+/** Set the cover Durability for a participant. Clamped to 0..3. */
+export async function setParticipantCover(
+  encounterId: string,
+  actorId: string,
+  value: number,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  if (!enc.participants.some((p) => p.actorId === actorId)) return null;
+  const v = clamp03(value);
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, cover: v } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set the concealment level for a participant. Clamped to 0..3. */
+export async function setParticipantConcealment(
+  encounterId: string,
+  actorId: string,
+  value: number,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  if (!enc.participants.some((p) => p.actorId === actorId)) return null;
+  const v = clamp03(value);
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, concealment: v } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/**
+ * Apply a "pinned by" marker to every participant other than the suppressor.
+ * Used by +attack/suppress (autofire burst-long with no damage).
+ */
+export async function applySuppression(
+  encounterId: string,
+  suppressorId: string,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === suppressorId ? p : { ...p, pinnedBy: suppressorId }
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Clear the pin on a single participant. */
+export async function clearPin(
+  encounterId: string,
+  actorId: string,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, pinnedBy: undefined } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set or clear the Beaten Down flag for a participant. */
+export async function setBeatenDown(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, beatenDown: value } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set or clear surrender on a participant. */
+export async function setSurrendered(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, surrendered: value } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set or clear the actionUsed flag for a participant. */
+export async function setActionUsed(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, actionUsed: value } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set the ran (sprint) flag for a participant. Also consumes the instant slot. */
+export async function setRan(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId
+      ? { ...p, ran: value, movedThisRound: value ? true : p.movedThisRound, actionUsed: value ? true : p.actionUsed }
+      : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/**
+ * Mark the current actor as Delayed (held action) and advance past them.
+ * Returns { encounter, advanced } where advanced is the post-advance state.
+ */
+export async function delayCurrent(
+  encounterId: string,
+): Promise<{ encounter: Encounter; delayedActorId: string | null } | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc || enc.status !== "active") return null;
+  if (enc.participants.length === 0) return null;
+  const cur = enc.participants[enc.turnIdx];
+  if (!cur) return null;
+  const participants = enc.participants.map((p, i) =>
+    i === enc.turnIdx ? { ...p, delayed: true } : p
+  );
+  const mid: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, mid);
+  const advanced = await advanceTurn(encounterId);
+  return { encounter: advanced ?? mid, delayedActorId: cur.actorId };
+}
+
+/**
+ * A delayed participant reclaims their action. We point turnIdx at them and
+ * clear the delayed flag so the order resumes from their seat next.
+ * Returns null if the actor isn't delayed.
+ */
+export async function reclaimDelayed(
+  encounterId: string,
+  actorId: string,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc || enc.status !== "active") return null;
+  const idx = enc.participants.findIndex((p) => p.actorId === actorId);
+  if (idx < 0) return null;
+  if (!enc.participants[idx].delayed) return null;
+  const participants = enc.participants.map((p, i) =>
+    i === idx ? { ...p, delayed: false, actionUsed: false, ran: false } : p
+  );
+  const updated: Encounter = { ...enc, participants, turnIdx: idx };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Mark a participant as having used their movement this round. */
+export async function setMoved(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, movedThisRound: value } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Compute Speed from a sheet: Strength + Dexterity + Size (default 5). */
+export function computeSpeed(sheet: {
+  attributes?: Record<string, number>;
+  advantages?: { size?: number };
+} | null | undefined): number {
+  if (!sheet) return 5;
+  const attrs = sheet.attributes ?? {};
+  const str = (attrs.strength ?? attrs.Strength ?? 1) as number;
+  const dex = (attrs.dexterity ?? attrs.Dexterity ?? 1) as number;
+  const size = sheet.advantages?.size ?? 5;
+  return str + dex + size;
+}
+
 // ---------------------------------------------------------------------------
 // Query
 // ---------------------------------------------------------------------------
+
+/**
+ * Pure predicate: should this actor be blocked from leaving an encounter room?
+ * Blocks when the encounter is active, the actor is a participant, and the
+ * actor does not carry an admin/wizard flag.
+ */
+export function shouldBlockMove(
+  encounter: Encounter | null | undefined,
+  actorId: string,
+  actorFlags: Iterable<string>,
+): boolean {
+  if (!encounter || encounter.status !== "active") return false;
+  if (!encounter.participants.some((p) => p.actorId === actorId)) return false;
+  const flagSet = new Set(actorFlags);
+  if (flagSet.has("admin") || flagSet.has("wizard")) return false;
+  return true;
+}
 
 /** Return the active (non-resolved) encounter for a room, or null. */
 export async function getEncounterForRoom(

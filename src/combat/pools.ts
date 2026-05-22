@@ -12,7 +12,7 @@ import { type AttackOptions, type ModifierSet, buildModifiers } from "./modifier
 export type AttackPoolType = "unarmed" | "melee" | "ranged" | "thrown";
 
 export interface BuiltPool {
-  /** Final dice count (may be 0 or negative — caller should treat <= 0 as chance die). */
+  /** Final dice count (may be 0 or negative -- caller should treat <= 0 as chance die). */
   total: number;
   /** Base pool before modifiers (attribute + skill). */
   base: number;
@@ -60,7 +60,7 @@ export function buildPool(
   targetDefense: number,
   extraDice: number = 0,
 ): BuiltPool {
-  const mods = buildModifiers(opts);
+  const mods = buildModifiers(opts, sheet);
 
   let base = 0;
   let formula = "";

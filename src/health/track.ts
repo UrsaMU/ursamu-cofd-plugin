@@ -14,8 +14,8 @@ export type DamageType = "bashing" | "lethal" | "aggravated";
 
 /** Returns max boxes on the health track for a sheet (stamina + size). */
 export function healthMax(sheet: CofdSheet): number {
-  const stam = sheet.attributes.stamina ?? 1;
-  const size = sheet.advantages.size ?? 5;
+  const stam = sheet.attributes?.stamina ?? 1;
+  const size = sheet.advantages?.size ?? 5;
   return stam + size;
 }
 
@@ -51,7 +51,7 @@ export function applyDamage(
   for (let i = 0; i < amount; i++) {
     const total = out.bashing + out.lethal + out.aggravated;
     if (total < max) {
-      // There's free space — just add a box of this type.
+      // There's free space -- just add a box of this type.
       out[type] += 1;
       continue;
     }
@@ -126,4 +126,23 @@ export function woundPenalty(track: HealthTrack, max: number): number {
   if (filled >= max - 1) return -2;
   if (filled >= max - 2) return -1;
   return 0;
+}
+
+/**
+ * Wound-penalty magnitude (0..3) for a full sheet. Returns the positive number
+ * of dice to subtract from any pool the actor rolls.
+ *
+ * CoFD 2e: the three rightmost filled boxes apply -1 / -2 / -3 per box from
+ * the right. Worst applicable wins; penalties do NOT stack.
+ *
+ * TODO: applied via buildPool() for combat rolls and via parseRollExpression()
+ * for trait rolls. Out-of-band rolls (worker scripts, system rolls) need to
+ * call this helper explicitly.
+ */
+export function sheetWoundPenalty(sheet: CofdSheet): number {
+  const track = sheet.health ?? { bashing: 0, lethal: 0, aggravated: 0 };
+  const stam = sheet.attributes?.stamina ?? 1;
+  const size = sheet.advantages?.size ?? 5;
+  const max = stam + size;
+  return -woundPenalty(track, max);
 }

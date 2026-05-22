@@ -12,7 +12,11 @@ export interface WeaponEntry {
   strength: number;
   size: number;
   availability: number;
+  /** CofD 2e abstract band: "Close" | "Medium" | "Long" | "Extreme". */
   ranges?: string;
+  /** CofD 2e abstract magazine class: "Low" | "Medium" | "High". */
+  capacity?: string;
+  /** Numeric round count for ammo tracking (currentClip vs clip). */
   clip?: number;
   example?: string;
   special?: string;

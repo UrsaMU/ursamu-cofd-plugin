@@ -66,7 +66,7 @@
 
     { "sub": "Initiative Table" },
     { "cmd": "+combat/order", "label": "view order" },
-    { "expect": "INITIATIVE" },
+    { "expect": "Status: active" },
 
     { "sub": "Advance Turns" },
     { "cmd": "+combat/next", "label": "advance (turn 2)" },

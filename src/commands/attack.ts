@@ -31,9 +31,10 @@
 //  11. Increment encounter appliedDefense for target
 //  12. Output
 
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import type { IUrsamuSDK, IDBObj } from "@ursamu/ursamu";
 import { type CofdSheet, defaultSheet } from "../stats/index.ts";
 import type { AttackOptions } from "../combat/modifiers.ts";
+import { heavyHitterBonus } from "../combat/modifiers.ts";
 import { buildPool, computeDefense, type AttackPoolType } from "../combat/pools.ts";
 import { applyAttackDamage } from "../combat/damage.ts";
 import { checkSpecifiedTargetTilts } from "../combat/tilts.ts";
@@ -41,12 +42,18 @@ import { addTilt } from "../subsystems/tilts.ts";
 import {
   getEncounterForRoom,
   applyDefense,
+  applySuppression,
+  setActionUsed,
+  setBeatenDown,
+  setMoved,
+  setSurrendered,
 } from "../combat/encounter.ts";
 import { executeRoll } from "../roller/index.ts";
 import {
   equippedWeaponEntry,
   equippedArmorEntry,
   fireShots,
+  parseWeaponTags,
 } from "../equipment/index.ts";
 
 /** Helper: parse an integer from a switch value string, clamped to range. */
@@ -58,7 +65,25 @@ function parseIntSwitch(val: string | undefined, min: number, max: number, def: 
 }
 
 export async function attackExec(u: IUrsamuSDK) {
-  const rawArgs = u.cmd.args[0] ?? "";
+  // Accepts both syntaxes:
+  //   +attack <target>[/<switch>...]            (target first)
+  //   +attack/<switch> <target>[/<switch>...]   (switch first, MUSH convention)
+  const leadSwitch = (u.cmd.args[0] ?? "").trim();
+  const tail = (u.cmd.args[1] ?? "").trim();
+  let rawArgs: string;
+  if (leadSwitch && tail) {
+    // Switch-first form: args[0]=switch, args[1]=target[/switches...]
+    const slashIdx = tail.indexOf("/");
+    rawArgs = slashIdx >= 0
+      ? `${tail.slice(0, slashIdx)}/${leadSwitch}${tail.slice(slashIdx)}`
+      : `${tail}/${leadSwitch}`;
+  } else if (tail) {
+    // Pattern matched no switch; args[1] holds the legacy <target>[/<switches>].
+    rawArgs = tail;
+  } else {
+    // Direct callers (or older mocks) pass everything in args[0].
+    rawArgs = leadSwitch;
+  }
   const rest = u.util.stripSubs(rawArgs).trim();
 
   if (!rest) {
@@ -96,20 +121,18 @@ export async function attackExec(u: IUrsamuSDK) {
     u.send("It is not your turn.");
     return;
   }
-
-  // ---- Target lookup --------------------------------------------------
-  const target = await u.util.target(u.me, targetName, true);
-  if (!target) {
-    u.send(`Target '${targetName}' not found.`);
+  // Action economy: one instant action per turn. Doesn't apply to /aim
+  // which short-circuits below before reaching the resolver, or to
+  // reflexive actions handled by +combat.
+  if (currentActor.actionUsed) {
+    u.send("You already used your instant action this turn. Use +combat/next to end your turn.");
     return;
   }
 
-  const canEditTarget = await u.canEdit(u.me, target);
-  // Health writes require canEdit on the target (builder+ or self).
-  if (!canEditTarget) {
-    u.send("You do not have permission to apply damage to that target.");
-    return;
-  }
+  // Multi-target burst: targets separated by "=".
+  const targetNames = targetName.includes("=")
+    ? targetName.split("=").map((s) => s.trim()).filter(Boolean)
+    : [targetName];
 
   // ---- Parse switches -------------------------------------------------
   let poolOverride: AttackPoolType | undefined;
@@ -120,6 +143,7 @@ export async function attackExec(u: IUrsamuSDK) {
   let burstShort = false;
   let burstMed = false;
   let burstLong = false;
+  let suppress = false;
   let intoMeleeCount: number | undefined;
   let targetProne = false;
   let targetSurprised = false;
@@ -145,6 +169,7 @@ export async function attackExec(u: IUrsamuSDK) {
     } else if (sw === "burst-short") burstShort = true;
     else if (sw === "burst-med") burstMed = true;
     else if (sw === "burst-long") burstLong = true;
+    else if (sw === "suppress") { suppress = true; burstLong = true; }
     else if (sw.startsWith("into-melee")) {
       const eqIdx = sw.indexOf("=");
       intoMeleeCount = eqIdx >= 0 ? parseIntSwitch(sw.slice(eqIdx + 1), 1, 10, 1) : 1;
@@ -172,7 +197,7 @@ export async function attackExec(u: IUrsamuSDK) {
   const aimState = (u.me.state?.cofd_aim as { banked: number } | undefined) ?? { banked: 0 };
   if (doAim) {
     const newBanked = Math.min(3, aimState.banked + 1);
-    await u.db.modify(u.me.id, "$set", { "state.cofd_aim": { banked: newBanked } });
+    await u.db.modify(u.me.id, "$set", { "data.cofd_aim": { banked: newBanked } });
     u.send(`%cgAim banked.%cn You now have +${newBanked} aim bonus for your next ranged attack.`);
     return;
   }
@@ -180,12 +205,24 @@ export async function attackExec(u: IUrsamuSDK) {
   if (aimBonus > 0) {
     // Consume aim after use.
     aimBankVal = aimBonus;
-    await u.db.modify(u.me.id, "$set", { "state.cofd_aim": { banked: 0 } });
+    await u.db.modify(u.me.id, "$set", { "data.cofd_aim": { banked: 0 } });
   }
 
   // ---- Weapon info ----------------------------------------------------
   const equippedWeaponId = mySheet.equipment?.equippedWeapon ?? null;
   const weaponInfo = await equippedWeaponEntry(u, equippedWeaponId);
+  const weaponTags = parseWeaponTags(weaponInfo?.entry?.special);
+
+  if (offhand && weaponTags.twoHanded) {
+    u.send("You cannot use /offhand with a two-handed weapon.");
+    return;
+  }
+
+  const wantsBurst = burstShort || burstMed || burstLong;
+  if (wantsBurst && !weaponTags.autofire) {
+    u.send("Your equipped weapon does not support autofire bursts.");
+    return;
+  }
 
   // Determine pool type.
   let poolType: AttackPoolType;
@@ -205,30 +242,79 @@ export async function attackExec(u: IUrsamuSDK) {
 
   const isFirearm = poolType === "ranged";
 
-  // ---- Target sheet and Defense ---------------------------------------
-  const targetSheet: CofdSheet = (target.state?.cofd as CofdSheet) ?? defaultSheet();
-  let targetDefense = computeDefense(targetSheet);
-
-  // Subtract applied defense (target has been attacked this round already).
-  const targetParticipant = encounter.participants.find((p) => p.actorId === target.id);
-  if (targetParticipant) {
-    targetDefense = Math.max(0, targetDefense - targetParticipant.appliedDefense);
+  // ---- Validate target count vs burst type ---------------------------
+  const isMultiTargetBurst = burstMed || burstLong;
+  if (!isMultiTargetBurst && targetNames.length > 1) {
+    u.send("Multiple targets are only allowed with /burst-med or /burst-long.");
+    return;
+  }
+  const maxTargets = isMultiTargetBurst ? 3 : 1;
+  if (targetNames.length > maxTargets) {
+    u.send(`Too many targets: max ${maxTargets} for this burst.`);
+    return;
   }
 
-  // Dodge: if target is dodging, use 2x Defense as a contested pool (handled
-  // later by noting that target effectively has 2x Defense dice).
-  // For pool builder purposes, if dodging we pass double defense but note it.
-  let dodging = false;
-  if (targetParticipant?.isDodging) {
-    dodging = true;
-    // Dodge in CoFD 2e works as a subtraction of 2x Defense dice from the
-    // attacker's pool. We fold this into a modified targetDefense value.
-    targetDefense = targetParticipant.appliedDefense > 0
-      ? 0 // already doubled out in prior attack
-      : computeDefense(targetSheet) * 2;
+  // ---- Resolve all targets -------------------------------------------
+  const targets: IDBObj[] = [];
+  for (const name of targetNames) {
+    const t = await u.util.target(u.me, name, true);
+    if (!t) { u.send(`Target '${name}' not found.`); return; }
+    // Surrender refusal: cannot target a participant who has surrendered.
+    const tp = encounter.participants.find((p) => p.actorId === t.id);
+    if (tp?.surrendered) {
+      u.send(`${t.name ?? "Target"} has surrendered; deliberate violation requires Storyteller approval.`);
+      return;
+    }
+    if (!(await u.canEdit(u.me, t))) {
+      u.send(`You do not have permission to apply damage to ${name}.`);
+      return;
+    }
+    targets.push(t);
   }
 
-  // ---- Willpower ------------------------------------------------------
+  // Charge feasibility: can't charge after already moving this round.
+  const myParticipant = encounter.participants.find((p) => p.actorId === u.me.id);
+  if (charge && myParticipant?.movedThisRound) {
+    u.send("You already moved; you can't charge.");
+    return;
+  }
+
+  // Suppressive fire: own branch, no damage, applies pin to all others.
+  if (suppress) {
+    if (!isFirearm || !weaponInfo) {
+      u.send("Suppressive fire requires an equipped firearm.");
+      return;
+    }
+    if (!weaponTags.autofire) {
+      u.send("This weapon cannot perform suppressive fire (no autofire).");
+      return;
+    }
+    if (!skipAmmo && equippedWeaponId) {
+      const remaining = await fireShots(u, equippedWeaponId, 20);
+      if (remaining === null) {
+        u.send("Not enough ammo (need 20 rounds for suppressive fire).");
+        return;
+      }
+    }
+    const dex = (mySheet.attributes as Record<string, number>).dexterity ?? 1;
+    const firearms = (mySheet.skills as Record<string, number>).firearms ?? 0;
+    const pool = dex + firearms + 3;
+    const result = executeRoll(Math.max(0, pool));
+    await applySuppression(encounter.id, u.me.id);
+    await setActionUsed(encounter.id, u.me.id, true);
+    const attackerName = u.me.name ?? "Unknown";
+    u.broadcast(
+      `%cySUPPRESS>>%cn ${attackerName} lays down suppressive fire ` +
+        `(${pool}d): %cw${result.successes}%cn success` +
+        `${result.successes === 1 ? "" : "es"}. All others are pinned.`,
+    );
+    return;
+  }
+
+  // Pinned attackers take -2 dice to any aggressive action.
+  const isPinned = !!(myParticipant?.pinnedBy && myParticipant.pinnedBy !== u.me.id);
+
+  // ---- Willpower (once per attack) ------------------------------------
   let extraDice = 0;
   let spentWp = false;
   if (wantWillpower) {
@@ -239,7 +325,7 @@ export async function attackExec(u: IUrsamuSDK) {
     extraDice = 3;
     spentWp = true;
     await u.db.modify(u.me.id, "$set", {
-      "state.cofd": {
+      "data.cofd": {
         ...mySheet,
         advantages: {
           ...mySheet.advantages,
@@ -254,152 +340,199 @@ export async function attackExec(u: IUrsamuSDK) {
     extraDice += aimBankVal;
   }
 
-  // ---- Build options and pool -----------------------------------------
-  const opts: AttackOptions = {
-    pool: poolType,
-    allOut,
-    charge,
-    offhand,
-    pulling,
-    burstShort,
-    burstMed,
-    burstLong,
-    intoMelee: intoMeleeCount,
-    targetProne,
-    targetSurprised,
-    specified,
-    aim: aimBankVal ?? 0,
-  };
+  // ---- Pinned penalty -------------------------------------------------
+  if (isPinned) extraDice -= 2;
 
-  const built = buildPool(mySheet, poolType, opts, targetDefense, extraDice);
-  const finalPool = built.total;
+  // ---- Movement / surrender bookkeeping ------------------------------
+  if (charge && myParticipant) {
+    await setMoved(encounter.id, u.me.id, true);
+  }
+  if (myParticipant?.surrendered) {
+    await setSurrendered(encounter.id, u.me.id, false);
+  }
 
-  // ---- Ammo decrement --------------------------------------------------
+  // ---- Ammo decrement (once per burst, cost depends on burst type) ----
   if (isFirearm && !skipAmmo && equippedWeaponId) {
-    const remaining = await fireShots(u, equippedWeaponId, 1);
+    const ammoCost = burstLong ? 20 : burstMed ? 10 : burstShort ? 3 : 1;
+    const remaining = await fireShots(u, equippedWeaponId, ammoCost);
     if (remaining === null) {
-      u.send("Your firearm is out of ammo. Reload first with +gear/reload.");
+      u.send(`Your firearm has insufficient ammo for this burst (need ${ammoCost}). Reload with +gear/reload.`);
       return;
     }
   }
 
-  // ---- Roll ------------------------------------------------------------
-  const result = executeRoll(Math.max(0, finalPool));
-
-  // ---- Damage resolution ----------------------------------------------
-  const weaponDmgMod = weaponInfo?.entry?.damage ?? 0;
-  const rawHits = result.successes + (result.successes > 0 ? weaponDmgMod : 0);
-
-  // Armor
-  const armorId = targetSheet.equipment?.equippedArmor ?? null;
-  const targetArmor = await equippedArmorEntry(u, armorId);
-  const armorGeneral = targetArmor?.entry?.ratingGeneral ?? 0;
-  const armorBallistic = targetArmor?.entry?.ratingBallistic ?? 0;
-
-  // Pulling blow cap
-  const effectiveHits = pulling ? Math.min(rawHits, pulling.max) : rawHits;
-
-  // Determine damage type (ranged = lethal; unarmed / thrown = bashing; melee = lethal unless blunt).
-  // Simplified: ranged always lethal; others bashing by default (caller can override via weapon entry
-  // once that field exists in the catalog -- for now use weapon damage > 0 as a lethal proxy).
+  // ---- Per-target attack resolution -----------------------------------
+  const attackerName = u.me.name ?? "Unknown";
   const damageType: "bashing" | "lethal" = isFirearm ? "lethal" : "bashing";
 
-  let netDamage = 0;
-  let beatenDown = false;
-  let unconscious = false;
-  let appliedTilts: string[] = [];
+  for (const target of targets) {
+    const targetSheet: CofdSheet = (target.state?.cofd as CofdSheet) ?? defaultSheet();
+    let targetDefense = computeDefense(targetSheet);
 
-  if (result.successes > 0) {
-    const dmgResult = applyAttackDamage(
-      targetSheet,
-      effectiveHits,
-      damageType,
-      armorGeneral,
-      armorBallistic,
-      isFirearm,
-    );
+    // Applied defense from prior attacks this round.
+    const tp = encounter.participants.find((p) => p.actorId === target.id);
+    if (tp) targetDefense = Math.max(0, targetDefense - tp.appliedDefense);
 
-    netDamage = dmgResult.netDamage;
-    beatenDown = dmgResult.beatenDown;
-    unconscious = dmgResult.unconscious;
+    let dodging = false;
+    if (tp?.isDodging) {
+      dodging = true;
+      targetDefense = tp.appliedDefense > 0
+        ? 0
+        : computeDefense(targetSheet) * 2;
+    }
 
-    if (netDamage > 0) {
-      // Persist updated health to target.
-      await u.db.modify(target.id, "$set", {
-        "state.cofd": dmgResult.sheet,
-      });
+    // Cover / concealment from declared participant state.
+    const rawCover = tp?.cover ?? 0;
+    const rawConceal = tp?.concealment ?? 0;
+    const targetCoverVal = rawCover > 0 ? rawCover : undefined;
+    const targetConcealVal: 1 | 2 | 3 | undefined =
+      rawConceal === 1 || rawConceal === 2 || rawConceal === 3 ? rawConceal : undefined;
 
-      // Specified target tilts.
-      const stamina = targetSheet.attributes?.stamina ?? 1;
-      const size = targetSheet.advantages?.size ?? 5;
-      appliedTilts = checkSpecifiedTargetTilts(netDamage, stamina, size, specified);
+    const opts: AttackOptions = {
+      pool: poolType,
+      allOut,
+      charge,
+      offhand,
+      pulling,
+      burstShort,
+      burstMed,
+      burstLong,
+      targetCover: targetCoverVal,
+      targetConcealment: targetConcealVal,
+      targets: targets.length,
+      intoMelee: intoMeleeCount,
+      targetProne,
+      targetSurprised,
+      specified,
+      aim: aimBankVal ?? 0,
+    };
 
-      if (appliedTilts.length > 0) {
-        let tiltSheet = dmgResult.sheet;
-        for (const key of appliedTilts) {
-          // Only apply recognized subsystem tilts (not heart-strike).
-          if (key !== "heart-strike") {
-            tiltSheet = addTilt(tiltSheet, key);
-          }
+    // Reach delta: in melee, the longer reach grants +1 dice over the shorter.
+    let reachDelta = 0;
+    if (poolType === "melee" && weaponTags.reach > 1) {
+      const targetWeaponId = targetSheet.equipment?.equippedWeapon ?? null;
+      const targetWeapon = await equippedWeaponEntry(u, targetWeaponId);
+      const targetReach = parseWeaponTags(targetWeapon?.entry?.special).reach;
+      reachDelta = Math.max(0, weaponTags.reach - targetReach);
+    }
+
+    const built = buildPool(mySheet, poolType, opts, targetDefense, extraDice + reachDelta);
+    const finalPool = built.total;
+    const result = executeRoll(Math.max(0, finalPool), { again: weaponTags.again });
+
+    const weaponDmgMod = weaponInfo?.entry?.damage ?? 0;
+    // Heavy Hitter (3 dots, melee only): +1 raw hit when wielding melee.
+    const heavyHitter = result.successes > 0 ? heavyHitterBonus(mySheet, isFirearm) : 0;
+    const rawHits = result.successes + (result.successes > 0 ? weaponDmgMod : 0) + heavyHitter;
+
+    const armorId = targetSheet.equipment?.equippedArmor ?? null;
+    const targetArmor = await equippedArmorEntry(u, armorId);
+    // Armor piercing reduces whichever armor band applies before damage calc.
+    const armorGeneral = Math.max(0, (targetArmor?.entry?.ratingGeneral ?? 0) - weaponTags.armorPiercing);
+    const armorBallistic = Math.max(0, (targetArmor?.entry?.ratingBallistic ?? 0) - weaponTags.armorPiercing);
+
+    const effectiveHits = pulling ? Math.min(rawHits, pulling.max) : rawHits;
+
+    let netDamage = 0;
+    let beatenDown = false;
+    let unconscious = false;
+    let appliedTilts: string[] = [];
+
+    if (result.successes > 0) {
+      const dmgResult = applyAttackDamage(
+        targetSheet,
+        effectiveHits,
+        damageType,
+        armorGeneral,
+        armorBallistic,
+        isFirearm,
+      );
+
+      netDamage = dmgResult.netDamage;
+      beatenDown = dmgResult.beatenDown;
+      unconscious = dmgResult.unconscious;
+
+      if (netDamage > 0) {
+        await u.db.modify(target.id, "$set", { "data.cofd": dmgResult.sheet });
+
+        const stamina = targetSheet.attributes?.stamina ?? 1;
+        const size = targetSheet.advantages?.size ?? 5;
+        appliedTilts = checkSpecifiedTargetTilts(netDamage, stamina, size, specified);
+
+        // Weapon-property tilts: Stun applies on any hit; Knockdown when net damage >= Size.
+        if (weaponTags.stun && !appliedTilts.includes("stunned")) {
+          appliedTilts.push("stunned");
         }
-        await u.db.modify(target.id, "$set", { "state.cofd": tiltSheet });
+        if (weaponTags.knockdown && netDamage >= size && !appliedTilts.includes("knocked-down")) {
+          appliedTilts.push("knocked-down");
+        }
+
+        if (appliedTilts.length > 0) {
+          let tiltSheet = dmgResult.sheet;
+          for (const key of appliedTilts) {
+            if (key !== "heart-strike") tiltSheet = addTilt(tiltSheet, key);
+          }
+          await u.db.modify(target.id, "$set", { "data.cofd": tiltSheet });
+        }
+
+        await applyDefense(encounter.id, target.id);
       }
+    }
 
-      // Increment applied defense for target.
-      await applyDefense(encounter.id, target.id);
+    // ---- Output (per target) ------------------------------------------
+    const targetName2 = target.name ?? "Unknown";
+    const hitWord = result.successes > 0 ? "hits" : "misses";
+    const poolDesc = `${built.formula}=${finalPool > 0 ? finalPool : "chance"}d`;
+    const diceStr = result.rolls.join(" ");
+    const dmgPart = netDamage > 0 ? ` ${netDamage} ${damageType}` : "";
+    const dodgeNote = dodging ? " (dodging)" : "";
+
+    u.broadcast(
+      `%cyATTACK>>%cn ${attackerName} attacks ${targetName2}${dodgeNote}: ` +
+        `%cw${result.successes}%cn success${result.successes === 1 ? "" : "es"} ${hitWord}${dmgPart}.`,
+    );
+
+    u.send(
+      `%cgROLL DETAIL:%cn ${targetName2} ${poolDesc} (${diceStr})` +
+        (spentWp ? " [+3 WP]" : "") +
+        (aimBankVal ? ` [+${aimBankVal} aim]` : "") +
+        (targetCoverVal ? ` [cover -${targetCoverVal}]` : "") +
+        (targetConcealVal ? ` [conceal -${targetConcealVal}]` : "") +
+        (result.dramaticFailure ? " %crDRAMATIC FAILURE%cn" : ""),
+    );
+
+    if (netDamage > 0 && target.id !== u.me.id) {
+      u.send(
+        `%cyINJURED:%cn ${attackerName} dealt ${netDamage} ${damageType} damage to you.`,
+        target.id,
+      );
+    }
+
+    if (beatenDown) {
+      u.broadcast(`%cr${targetName2} is Beaten Down!%cn`);
+      await setBeatenDown(encounter.id, target.id, true);
+    }
+    if (unconscious) u.broadcast(`%cr${targetName2} is Incapacitated!%cn`);
+    for (const tiltKey of appliedTilts) {
+      if (tiltKey === "heart-strike") {
+        u.broadcast(`%cy${targetName2} takes a strike to the heart!%cn`);
+      } else {
+        u.broadcast(`%cy${targetName2} gains tilt: ${tiltKey}%cn`);
+      }
+    }
+
+    if (built.mods.attackerLosesDefense) {
+      u.send("%cyNote:%cn You lose your Defense until your next turn (all-out / charge).");
+    }
+    if (reachDelta > 0) {
+      u.send(`%cyNote:%cn Reach advantage applied (+${reachDelta} dice).`);
     }
   }
 
-  // ---- Output ----------------------------------------------------------
-  const attackerName = u.me.name ?? "Unknown";
-  const targetName2 = target.name ?? "Unknown";
-  const hitWord = result.successes > 0 ? "hits" : "misses";
-  const poolDesc = `${built.formula}=${finalPool > 0 ? finalPool : "chance"}d`;
-  const diceStr = result.rolls.join(" ");
-  const dmgPart = netDamage > 0 ? ` ${netDamage} ${damageType}` : "";
-  const dodgeNote = dodging ? " (dodging)" : "";
+  // Consume the attacker's instant action for this turn.
+  await setActionUsed(encounter.id, u.me.id, true);
 
-  // Public line.
-  u.broadcast(
-    `%cyATTACK>>%cn ${attackerName} attacks ${targetName2}${dodgeNote}: ` +
-      `%cw${result.successes}%cn success${result.successes === 1 ? "" : "es"} ${hitWord}${dmgPart}.`,
-  );
-
-  // Private detail line to attacker.
-  u.send(
-    `%cgROLL DETAIL:%cn ${poolDesc} (${diceStr})` +
-      (spentWp ? " [+3 WP]" : "") +
-      (aimBankVal ? ` [+${aimBankVal} aim]` : "") +
-      (result.dramaticFailure ? " %crDRAMATIC FAILURE%cn" : ""),
-  );
-
-  // Notify target of damage privately.
-  if (netDamage > 0 && target.id !== u.me.id) {
-    u.send(
-      `%cyINJURED:%cn ${attackerName} dealt ${netDamage} ${damageType} damage to you.`,
-      target.id,
-    );
-  }
-
-  // Status effects.
-  if (beatenDown) {
-    u.broadcast(`%cr${targetName2} is Beaten Down!%cn`);
-  }
-  if (unconscious) {
-    u.broadcast(`%cr${targetName2} is Incapacitated!%cn`);
-  }
-  for (const tiltKey of appliedTilts) {
-    if (tiltKey === "heart-strike") {
-      u.broadcast(`%cy${targetName2} takes a strike to the heart!%cn`);
-    } else {
-      u.broadcast(`%cy${targetName2} gains tilt: ${tiltKey}%cn`);
-    }
-  }
-
-  // All-out / charge: attacker loses defense next round (note only).
-  if (built.mods.attackerLosesDefense) {
-    u.send(
-      "%cyNote:%cn You lose your Defense until your next turn (all-out / charge).",
-    );
+  if (weaponTags.slow) {
+    u.send("%cyNote:%cn This weapon is Slow -- drawing or stowing it costs an instant action.");
   }
 }

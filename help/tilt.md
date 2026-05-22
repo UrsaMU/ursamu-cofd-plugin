@@ -5,34 +5,21 @@
 Syntax:
   +tilt                                  View your active Tilts.
   +tilt <player>                         View another player's Tilts.
-  +tilt/list                             Full catalog.
-  +tilt/list <scope>                     Filter (personal|environmental).
+  +tilt/list [<scope>]                   Catalog. Optional filter:
+                                         personal | environmental.
   +tilt/show <key>                       Full Tilt entry.
-  +tilt/add <key> [for <player>]         Inflict a Tilt by catalog key.
-  +tilt/add <key>/<note> [for <player>]  Inflict with a free-text note.
+  +tilt/add <key>[/<note>] [for <p>]     Inflict a Tilt (optional note).
   +tilt/remove <key> [for <player>]      Remove a single Tilt.
   +tilt/clear [for <player>]             Scene-end sweep (no Beats).
-
-Switches:
-  /list      Print the catalog (Personal Tilts and Environmental Tilts).
-  /show      Print one Tilt's description, effect, causing, and ending.
-  /add       Inflict a catalog Tilt on the target. Each key is unique
-             per character; duplicates are no-ops.
-  /remove    Remove one Tilt by key.
-  /clear     Wipe every active Tilt on the target (scene end).
-
-Mechanics:
-  Tilts come in two flavors. Personal Tilts attach to one character.
-  Environmental Tilts affect a scene but are tracked per-character in
-  this implementation (v1 has no scene object).
-
-  Resolving or removing a Tilt awards zero Beats (CoFD 2e core p.282).
-  Tilts end at scene end or by the specific Ending text in each entry.
 
 Permissions:
   View              connected.
   Modify own        connected.
   Modify other      connected + canEdit (builder+).
+
+Mechanics:
+  Resolving or removing a Tilt awards zero Beats (CoFD 2e core p.282).
+  Tilts end at scene end or by the specific Ending text in each entry.
 
 Examples:
   +tilt                          View your active Tilts.

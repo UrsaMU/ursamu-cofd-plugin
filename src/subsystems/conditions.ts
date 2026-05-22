@@ -1,4 +1,4 @@
-// Conditions and Tilts subsystem — pure functions over CofdSheet.
+// Conditions and Tilts subsystem -- pure functions over CofdSheet.
 //
 // The catalog is loaded from resources/conditions.json at module load time.
 // Each catalog entry is identified by a lowercase-kebab key (e.g. "shaken",

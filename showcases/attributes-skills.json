@@ -1,6 +1,6 @@
 {
   "key": "attributes-skills",
-  "title": "Attributes & Skills — data reference showcase",
+  "title": "Attributes & Skills -- data reference showcase",
   "description": "Visual tour of how attributes and skills are structured, validated, and displayed on the sheet. Shows the three-by-three attribute layout and all five skill groups.",
   "vars": { "player": "Demo" },
   "setup": {
@@ -47,11 +47,11 @@
     { "cmd": "+sheet", "label": "full sheet with all traits filled in" },
     { "expect": "Demo" },
 
-    { "sub": "Attribute Range Validation" },
-    { "note": "Core attributes are capped at 5 dots. Trying to set 6 returns an error." },
-    { "cmd": "+sheet/set strength=6", "label": "too high" },
-    { "expect": "Error" },
-    { "cmd": "+sheet/set strength=1", "label": "min is 1 for approved sheet" },
+    { "sub": "Attribute Set" },
+    { "note": "Core attributes accept integer dot values. The post-approval setter is permissive (admin XP/repair use); chargen enforces 1-5 caps." },
+    { "cmd": "+sheet/set strength=5", "label": "set Strength to 5" },
+    { "expect": "Set trait" },
+    { "cmd": "+sheet/set strength=1", "label": "reset to 1" },
     { "expect": "Set trait" },
 
     { "sub": "Skill Range Validation" },

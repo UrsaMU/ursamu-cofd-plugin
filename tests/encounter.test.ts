@@ -8,11 +8,15 @@ import {
   advanceTurn,
   applyDefense,
   createEncounter,
+  delayCurrent,
   getEncounterForRoom,
+  reclaimDelayed,
   removeParticipant,
   roll1d10,
   rollInitiative,
+  setActionUsed,
   setDodge,
+  setRan,
 } from "../src/combat/encounter.ts";
 import { mockPlayer, mockU, MockObjectStore } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
@@ -338,5 +342,149 @@ describe("roll1d10", OPTS, () => {
       const r = roll1d10();
       assert(r >= 1 && r <= 10, `Expected 1-10, got ${r}`);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Action economy / delay-hold / run
+// ---------------------------------------------------------------------------
+
+describe("setActionUsed", OPTS, () => {
+  it("flips actionUsed for the named participant only", async () => {
+    const enc = await createEncounter("room-action-1");
+    const a = mockPlayer({ id: "act-p1", name: "A" });
+    const b = mockPlayer({ id: "act-p2", name: "B" });
+    await addParticipant(enc.id, a);
+    await addParticipant(enc.id, b);
+    const updated = await setActionUsed(enc.id, "act-p1", true);
+    assert(updated);
+    const pa = updated.participants.find((p) => p.actorId === "act-p1")!;
+    const pb = updated.participants.find((p) => p.actorId === "act-p2")!;
+    assertEquals(pa.actionUsed, true);
+    assertEquals(pb.actionUsed ?? false, false);
+  });
+});
+
+describe("setRan", OPTS, () => {
+  it("sets ran, movedThisRound, and actionUsed together", async () => {
+    const enc = await createEncounter("room-run-1");
+    const a = mockPlayer({ id: "run-p1", name: "A" });
+    await addParticipant(enc.id, a);
+    const updated = await setRan(enc.id, "run-p1", true);
+    assert(updated);
+    const p = updated.participants.find((x) => x.actorId === "run-p1")!;
+    assertEquals(p.ran, true);
+    assertEquals(p.movedThisRound, true);
+    assertEquals(p.actionUsed, true);
+  });
+});
+
+describe("delayCurrent + reclaimDelayed", OPTS, () => {
+  it("delays the current actor and advances past them, then reclaim re-points turnIdx", async () => {
+    const store = makeStore();
+    const u = makeU(store);
+    const enc = await createEncounter("room-delay-1");
+    const a = seedActor(store, "dly-p1", "A", { Dexterity: 5, Composure: 5 });
+    const b = seedActor(store, "dly-p2", "B", { Dexterity: 1, Composure: 1 });
+    await addParticipant(enc.id, a);
+    await addParticipant(enc.id, b);
+    // deno-lint-ignore no-explicit-any
+    (u.db as any).search = async (q: Record<string, unknown>) => {
+      // deno-lint-ignore no-explicit-any
+      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
+      // deno-lint-ignore no-explicit-any
+      return (store as any).search(q);
+    };
+    await rollInitiative(enc.id, u);
+    const live = await getEncounterForRoom("room-delay-1");
+    assert(live);
+    const firstActorId = live.participants[live.turnIdx].actorId;
+
+    const delayed = await delayCurrent(enc.id);
+    assert(delayed);
+    // The first actor is now flagged delayed.
+    const found = delayed.encounter.participants.find((p) => p.actorId === firstActorId);
+    assert(found?.delayed === true);
+    // turnIdx should have moved off the delayed actor.
+    assertNotEquals(delayed.encounter.participants[delayed.encounter.turnIdx].actorId, firstActorId);
+
+    const reclaimed = await reclaimDelayed(enc.id, firstActorId);
+    assert(reclaimed);
+    assertEquals(reclaimed.participants[reclaimed.turnIdx].actorId, firstActorId);
+    assertEquals(reclaimed.participants[reclaimed.turnIdx].delayed, false);
+  });
+
+  it("reclaimDelayed returns null when actor is not delayed", async () => {
+    const enc = await createEncounter("room-reclaim-no");
+    const a = mockPlayer({ id: "rec-p1", name: "A" });
+    await addParticipant(enc.id, a);
+    // deno-lint-ignore no-explicit-any
+    await (await import("../src/combat/encounter.ts")).encounterDb.update(
+      // deno-lint-ignore no-explicit-any
+      { id: enc.id } as any,
+      { ...enc, status: "active" },
+    );
+    const out = await reclaimDelayed(enc.id, "rec-p1");
+    assertEquals(out, null);
+  });
+});
+
+describe("advanceTurn round wrap", OPTS, () => {
+  it("resets actionUsed, delayed, and ran for all participants at round wrap", async () => {
+    const store = makeStore();
+    const u = makeU(store);
+    const enc = await createEncounter("room-wrap-reset");
+    const a = seedActor(store, "wrp-p1", "A");
+    const b = seedActor(store, "wrp-p2", "B");
+    await addParticipant(enc.id, a);
+    await addParticipant(enc.id, b);
+    // deno-lint-ignore no-explicit-any
+    (u.db as any).search = async (q: Record<string, unknown>) => {
+      // deno-lint-ignore no-explicit-any
+      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
+      // deno-lint-ignore no-explicit-any
+      return (store as any).search(q);
+    };
+    await rollInitiative(enc.id, u);
+
+    await setActionUsed(enc.id, "wrp-p1", true);
+    await setRan(enc.id, "wrp-p2", true);
+    // Advance through both turns.
+    await advanceTurn(enc.id);
+    const after = await advanceTurn(enc.id);
+    assert(after);
+    assertEquals(after.round, 2);
+    for (const p of after.participants) {
+      assertEquals(p.actionUsed ?? false, false, `actionUsed should reset for ${p.name}`);
+      assertEquals(p.delayed ?? false, false, `delayed should reset for ${p.name}`);
+      assertEquals(p.ran ?? false, false, `ran should reset for ${p.name}`);
+    }
+  });
+
+  it("clears actionUsed for the next actor when advancing mid-round", async () => {
+    const store = makeStore();
+    const u = makeU(store);
+    const enc = await createEncounter("room-mid-clear");
+    const a = seedActor(store, "mc-p1", "A");
+    const b = seedActor(store, "mc-p2", "B");
+    await addParticipant(enc.id, a);
+    await addParticipant(enc.id, b);
+    // deno-lint-ignore no-explicit-any
+    (u.db as any).search = async (q: Record<string, unknown>) => {
+      // deno-lint-ignore no-explicit-any
+      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
+      // deno-lint-ignore no-explicit-any
+      return (store as any).search(q);
+    };
+    await rollInitiative(enc.id, u);
+    const live = await getEncounterForRoom("room-mid-clear");
+    assert(live);
+    const second = live.participants[1];
+    // Pre-seed the second actor as having acted (simulating stale flag).
+    await setActionUsed(enc.id, second.actorId, true);
+    const after = await advanceTurn(enc.id);
+    assert(after);
+    assertEquals(after.turnIdx, 1);
+    assertEquals(after.participants[1].actionUsed, false);
   });
 });

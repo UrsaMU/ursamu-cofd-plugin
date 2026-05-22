@@ -1,7 +1,7 @@
 {
-  "key": "combat-basic",
-  "title": "+combat -- mortal vs mortal brawl",
-  "description": "Two mortals with Str 3, Brawl 2, Athletics 2, Dex 2, Composure 2 enter a brawl. Demonstrates opening an encounter, joining, rolling initiative, attacking, and closing.",
+  "key": "combat-cover",
+  "title": "+combat/cover -- declaring cover and seeing the attack penalty",
+  "description": "Two mortals enter a brawl. Jax declares partial cover (-1 to Marcus's attack pool). Then Marcus declares full cover (-3 to Jax's attack pool). The ROLL DETAIL line on +attack shows the cover penalty so the source is auditable.",
   "vars": {
     "player": "Jax"
   },
@@ -84,9 +84,6 @@
       "sub": "Open the Encounter"
     },
     {
-      "note": "The storyteller opens an encounter in the room. Any connected character can then join."
-    },
-    {
       "cmd": "+combat/start",
       "as": "admin",
       "label": "ST opens encounter"
@@ -95,7 +92,7 @@
       "expect": "encounter"
     },
     {
-      "sub": "Both Combatants Join"
+      "sub": "Combatants Join"
     },
     {
       "cmd": "+combat/join",
@@ -116,118 +113,95 @@
       "sub": "Roll Initiative"
     },
     {
-      "note": "Initiative = 1d10 + Dexterity + Composure. Both combatants have Dex 2, Composure 2."
-    },
-    {
       "cmd": "+combat/begin",
       "as": "admin",
-      "label": "ST kicks off round 1"
+      "label": "Roll initiative"
     },
     {
       "expect": "Round 1"
     },
     {
-      "sub": "Check Turn Order"
+      "sub": "Jax Declares Partial Cover"
     },
     {
-      "cmd": "+combat/order",
-      "label": "view the initiative table"
+      "note": "Partial cover = Durability 1. All attacks against Jax lose 1 die."
     },
     {
-      "expect": "Jax"
+      "cmd": "+combat/cover partial",
+      "label": "Jax slips behind a low wall"
     },
     {
-      "sub": "Round 1 -- First Combatant Attacks"
+      "expect": "COVER"
     },
     {
-      "note": "Pool: Strength 3 + Brawl 2 - Marcus Defense 2 = 3 dice. Successes + 0 weapon mod = bashing damage."
+      "sub": "Check Jax's Combat Status"
+    },
+    {
+      "cmd": "+combat/status Jax",
+      "label": "Inspect Jax"
+    },
+    {
+      "expect": "partial"
+    },
+    {
+      "sub": "Marcus Dives For Full Cover"
+    },
+    {
+      "note": "Full cover = Durability 3. Marcus is essentially behind a concrete pillar."
+    },
+    {
+      "cmd": "+combat/cover full",
+      "as": "Marcus",
+      "label": "Marcus takes full cover"
+    },
+    {
+      "expect": "full cover"
+    },
+    {
+      "sub": "Jax Attacks Marcus In Full Cover"
+    },
+    {
+      "note": "Pool = Str 3 + Brawl 2 - Defense 2 - Cover 3 = 0 dice (chance die)."
     },
     {
       "cmd": "+attack Marcus",
-      "label": "Jax punches Marcus"
+      "label": "Jax swings at the well-covered Marcus"
     },
     {
-      "expect": "attack"
+      "expect": "cover -3"
     },
     {
-      "sub": "Advance Turn"
+      "sub": "Advance to Marcus's Turn"
     },
     {
       "cmd": "+combat/next",
       "as": "admin",
-      "label": "end Jax's turn"
+      "label": "ST advances the turn"
     },
     {
-      "expect": "turn"
+      "sub": "Marcus Attacks Jax Through Cover"
     },
     {
-      "sub": "Round 1 -- Second Combatant Attacks"
+      "note": "Pool = Str 3 + Brawl 2 - Defense 2 - Cover 1 = 2 dice. The ROLL DETAIL line tags the [cover -1] penalty."
     },
     {
       "cmd": "+attack Jax",
       "as": "Marcus",
-      "label": "Marcus punches Jax"
+      "label": "Marcus punches at Jax in cover"
     },
     {
-      "expect": "attack"
+      "expect": "cover -1"
     },
     {
-      "sub": "End of Round 1 -- Advance to Round 2"
+      "sub": "Clear Cover"
     },
     {
-      "cmd": "+combat/next",
-      "as": "admin",
-      "label": "end Marcus's turn; round 2 begins"
-    },
-    {
-      "expect": "round"
-    },
-    {
-      "sub": "Check Health After Round 1"
-    },
-    {
-      "cmd": "+sheet",
-      "label": "Jax checks own health"
-    },
-    {
-      "expect": "Track:"
-    },
-    {
-      "sub": "Round 2 -- All-Out Attack"
-    },
-    {
-      "note": "+attack/allout grants +2 dice but Jax loses all Defense this turn."
-    },
-    {
-      "cmd": "+attack/allout Marcus",
-      "label": "Jax all-out attacks Marcus"
-    },
-    {
-      "expect": "attack"
-    },
-    {
-      "cmd": "+combat/next",
-      "as": "admin",
-      "label": "end Jax's turn"
-    },
-    {
-      "expect": "turn"
-    },
-    {
-      "cmd": "+attack Jax",
+      "cmd": "+combat/cover none",
       "as": "Marcus",
-      "label": "Marcus attacks undefended Jax"
+      "label": "Marcus steps out"
     },
     {
-      "expect": "attack"
-    },
-    {
-      "cmd": "+combat/next",
-      "as": "admin",
-      "label": "end round 2"
-    },
-    {
-      "expect": "round"
+      "expect": "COVER"
     },
     {
       "sub": "Close the Encounter"
@@ -235,7 +209,7 @@
     {
       "cmd": "+combat/end",
       "as": "admin",
-      "label": "ST ends the fight"
+      "label": "ST closes the fight"
     },
     {
       "expect": "ended"

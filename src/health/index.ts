@@ -6,5 +6,6 @@ export {
   healthMax,
   totalDamage,
   woundPenalty,
+  sheetWoundPenalty,
   type DamageType,
 } from "./track.ts";
