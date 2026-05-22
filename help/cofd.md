@@ -1,37 +1,59 @@
-# Chronicles of Darkness
+cofd  -- Chronicles of Darkness 2e plugin: sheets, chargen, dice, combat,
+        beats/XP, conditions/tilts, gear, NPCs, social maneuvering, and
+        Vampire (The Requiem) overlay.
 
-A file-driven supernatural template engine, interactive character creation,
-and a CoFD 2e dice roller for UrsaMU.
+Quick start:
+  +cg                       Begin or continue character generation.
+  +sheet                    View your approved character sheet.
+  +roll Strength+Brawl      Roll a CoFD 2e dice pool.
 
-## Topics
+Character commands:
+  help cg          Interactive six-stage chargen.
+  help sheet       View and edit character sheets.
+  help approve     Staff: approve a pending submission.
+  help unapprove   Staff: return a submission for revision.
+  help prove       Broadcast trait values to room or whisper to a player.
+  help notes       Public/private character notes.
 
-- `help cg`     — Interactive character generation
-- `help sheet`  — View and edit character sheets
-- `help roll`   — D10 dice rolls with 10/9/8-again and rote actions
-- `help health` — Damage track, wound penalty, healing
-- `help beat`   — Award and subtract Beats; 5:1 conversion to Experience
-- `help xp`     — View pools, spend XP to raise traits, cost table
-- `help condition`  — Apply, remove, and resolve Conditions and Tilts
-- `help aspiration` — Add, remove, and fulfill Aspirations (max 3)
-- `help vitae`      — View, spend, and gain Vitae (vampire-only)
-- `help touchstone` — Set Mask and Dirge Touchstones (vampire-only)
+Dice and progression:
+  help roll        D10 rolls; 10/9/8-again, rote, willpower, weapon.
+  help beat        Award/subtract Beats; 5:1 to Experience.
+  help xp          View XP pools, spend XP, list costs.
+  help extended    Extended actions (Core p.70).
 
-## Quick start
+Health, conditions, status:
+  help health      Damage track, wound penalty, healing.
+  help aid         First aid (Dexterity + Medicine).
+  help condition   Apply, remove, and resolve Conditions.
+  help tilt        Personal and Environmental Tilts.
+  help integrity   Integrity, Breaking Points, derangement.
+  help aspiration  Short- and long-term Aspirations (max 3).
 
-```
-+cg                 Start or continue character generation.
-+sheet              View your approved character sheet.
-+roll Strength+Brawl
-```
+Combat:
+  help combat      Encounters, initiative, turn order.
+  help attack      Attacks: pools, modifiers, locations, autofire.
+  help grapple     Grapples and grapple moves.
+  help throw       Grenades and aerodynamic thrown weapons.
+  help dodge       Reference: how dodging interacts with Defense.
+  help gear        Equipment catalog and inventory.
+  help reload      Reload a firearm (shortcut for +gear/reload).
+  help npc         Spawn and manage non-player antagonists.
 
-## Templates supported
+Social:
+  help social      Social Maneuvering (Core p.81-83).
 
-Mortal, Vampire (The Requiem), Werewolf (The Forsaken), Mage (The Awakening),
-Changeling (The Lost). Each template overlays its own Morality trait
-(Humanity/Harmony/Wisdom/Clarity), Power Stat (Blood Potency/Primal Urge/
-Gnosis/Wyrd), Energy pool (Vitae/Essence/Mana/Glamour), custom fields
-(Clan/Auspice/Path/Seeming), and valid power list.
+Vampire (The Requiem):
+  help vitae       Vitae pool: spend, gain, blush, boost.
+  help touchstone  Mask and Dirge anchors.
 
-## See also
+Reference topics:
+  help vices       Catalog of Vices.
+  help virtues     Catalog of Virtues.
+  help merit-combat  Combat-relevant Merits.
 
-- `help cg`, `help sheet`, `help roll`
+Templates:
+  Mortal, Vampire (Requiem), Werewolf (Forsaken), Mage (Awakening),
+  Changeling (Lost). Each overlays Morality, Power Stat, Energy
+  pool, and template fields. See help cg for chargen flow.
+
+See also: cg, sheet, roll

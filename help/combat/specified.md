@@ -12,25 +12,9 @@ Body part penalties and thresholds:
   Arm       -2             Arm Wrack              damage > Stamina
   Leg       -2             Leg Wrack              damage > Stamina
   Head      -3             Stunned                damage >= target Size
-  Heart     -3             (special -- see below) 5+ damage points
+  Heart     -3             (special)              5+ damage points
   Hand      -4             Arm Wrack              any damaging hit
   Eye       -5             Blinded                any damaging hit
-
-Tilt effects summary:
-  Arm Wrack (one arm)
-    Drop anything held. Suffer off-hand penalties for most rolls.
-  Arm Wrack (both arms)
-    Chance die on manual dexterity rolls. -3 to other Physical actions.
-  Leg Wrack (one leg)
-    Half Speed. -2 to Physical rolls involving movement.
-  Leg Wrack (both legs)
-    Knocked Down. Give up action to move at Speed 1.
-  Stunned
-    Lose next action. Half Defense until the character next acts.
-  Blinded (one eye)
-    -3 to vision-related rolls.
-  Blinded (both eyes)
-    -5 to vision-related rolls. Lose all Defense.
 
 Heart shots:
   Dealing 5 or more points of damage to the heart has special effects
@@ -41,5 +25,8 @@ Persistent Conditions after combat:
   lasting Conditions:
     Blinded Tilt -> Blind Condition (awards 1 Beat when resolved).
   Other Tilts end with the scene unless the Storyteller rules otherwise.
+
+More:
+  help combat tilt-effects     Summary of body-part Tilt effects.
 
 See also: combat modifiers, attack, health, condition

@@ -10,32 +10,18 @@ Syntax:
   +combat/next                           Advance to the next combatant's turn.
   +combat/end                            Close the encounter and clear state.
   +combat/ambush <attacker>=<defender>   Resolve an ambush check before begin.
-  +combat/delay                          Delay your action to later this turn.
-
-Switches:
-  /start    Opens the encounter. Only one encounter can be active per room.
-  /join     Adds you to the participant list. Use before /begin.
-  /leave    Removes you from the list. Cannot leave on your own turn.
-  /begin    Rolls initiative for all joined participants and orders them.
-            Calling /begin a second time re-rolls all initiative scores.
-  /order    Displays the current table (name, initiative, HP, turn marker).
-  /next     Ends the current combatant's turn. Automatically loops the
-            round counter and resets per-round Defense tracking.
-  /end      Closes the encounter. Requires admin or encounter opener.
-  /ambush   Runs a contested Wits+Composure vs Dexterity+Stealth check.
-            Loser of the contest cannot act or apply Defense on turn 1.
-  /delay    Moves your place in the order to later this turn. Your slot
-            becomes permanent for subsequent rounds.
+  +combat/cover <level> [for <player>]   Declare cover.
+  +combat/conceal <level> [for <player>] Declare concealment.
+  +combat/status [<player>]              Show a participant's combat state.
+  +combat/delay                          Hold your action; advance the turn.
+  +combat/act                            Take your held action now.
+  +combat/move                           Move up to Speed yards (free).
+  +combat/run                            Sprint; uses your instant action.
+  +combat/reflexive <text>               Announce a reflexive action.
 
 Permissions:
   /start, /end    connected + canEdit (builder+), or room owner.
   All others      connected; participant in the encounter.
-
-Mechanics:
-  Initiative = 1d10 + Dexterity + Composure + weapon Initiative modifier.
-  Higher results act first. Ties broken by Composure, then Dexterity.
-  Defense degrades by 1 for each attack resolved against a character
-  within the same turn. It resets at the start of the following turn.
 
 Examples:
   +combat/start                  Open a new encounter in this room.
@@ -47,9 +33,14 @@ Examples:
   +combat/end                    Close the encounter.
 
 More:
+  help combat switches           Per-switch behavior and rules.
   help combat initiative         Initiative formula and weapon modifiers.
   help combat order              Reading the turn table and delaying.
+  help combat action-economy     Instant, reflexive, movement slots.
+  help combat delaying           /delay and /act in detail.
   help combat modifiers          Attack modifier reference chart.
   help combat specified          Specified target penalties and Tilts.
+  help combat cover              Cover levels and Durability penalties.
+  help combat conceal            Concealment levels and attacker penalties.
 
 See also: attack, grapple, dodge, health, condition, roll

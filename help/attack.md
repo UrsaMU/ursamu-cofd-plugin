@@ -12,32 +12,17 @@ Switches:
   /melee          Strength + Weaponry - target Defense.
   /ranged         Dexterity + Firearms (Defense does not apply).
   /thrown         Dexterity + Athletics - target Defense.
-  /allout         +2 pool; you lose all Defense for this turn. Cannot
-                  combine with /charge.
-  /charge         Move up to 2x Speed and attack in one action. Lose
-                  all Defense. Cannot combine with /allout.
-  /aim            Declare aiming this turn for +1 die next turn (max +3).
-                  Incompatible with autofire switches.
+  /allout         +2 pool; you lose all Defense for this turn.
+  /charge         Move 2x Speed and attack. Lose all Defense.
+  /aim            +1 die next turn (max +3 over three turns).
   /burst-short    Autofire: +1 pool, 3 rounds, one target only.
   /burst-med      Autofire: +2 pool, 10 rounds, up to 3 targets.
-                  Extra targets listed after = separated by commas.
   /burst-long     Autofire: +3 pool, 20 rounds, any number of targets.
   /offhand        -2 pool for non-dominant hand attacks.
-  /pull <n>       Pull blow: set max damage cap to n. Target gains +1 Def.
+  /pull <n>       Pull blow: max damage cap n. Target gains +1 Def.
   /wp             Spend 1 Willpower for +3 dice.
   /specified      Target a body part. Use: +attack/specified <t>=<part>
   /touch          Dex+Brawl or Dex+Wpny to contact target; no damage.
-
-Defense:
-  Defense is automatically subtracted from the pool (unarmed, melee,
-  thrown). Each successive attack against the same character degrades
-  their Defense by 1 for the rest of the turn.
-  Defense does not apply to Firearms attacks (+attack/ranged).
-
-Damage:
-  Damage = successes rolled + weapon modifier.
-  All weapons deal lethal damage by default.
-  Use /pull to force bashing damage (Willpower spend required for weapons).
 
 Permissions:
   connected; must be a participant in an active encounter.
@@ -53,6 +38,8 @@ Examples:
   +attack/wp/allout Marcus               Willpower + all-out.
 
 More:
+  help attack defense        How Defense applies and degrades.
+  help attack damage         Damage formula and lethal vs bashing.
   help combat modifiers      Full modifier table.
   help combat specified      Specified target body parts and Tilts.
 
