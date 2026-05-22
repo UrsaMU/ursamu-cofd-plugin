@@ -1,9 +1,19 @@
 #!/usr/bin/env -S deno run -A --unstable-kv
-// Showcase runner — executes rhost-vision commands in-process against the
+// Showcase runner -- executes rhost-vision commands in-process against the
 // shim SDK. Usage: deno task showcase [key] [--list]
 import { parse }      from "@std/flags";
 import { expandGlob } from "@std/fs";
 import { join }       from "@std/path";
+
+// Deterministic RNG so initiative + roll outcomes are stable between runs.
+// LCG (Numerical Recipes constants). Seed reset on every showcase invocation.
+let __rng = 0x12345678 >>> 0;
+const RNG_SEED = 0x12345678 >>> 0;
+export function __resetRng(): void { __rng = RNG_SEED; }
+Math.random = () => {
+  __rng = (__rng * 1664525 + 1013904223) >>> 0;
+  return __rng / 0x100000000;
+};
 
 // deno-lint-ignore no-explicit-any
 type IDBObj = { id: string; name?: string; flags: Set<string>; state: Record<string, any>; contents: unknown[]; data?: Record<string, any>; [k: string]: unknown };
@@ -31,7 +41,7 @@ interface ShowcaseSetup {
 interface ShowcaseFile { key: string; label?: string; title?: string; description?: string; vars?: Record<string, string>; setup?: ShowcaseSetup; steps: ShowcaseStep[] }
 const showcaseLabel = (f: ShowcaseFile): string => f.label ?? f.title ?? f.description ?? "";
 
-// ── ANSI / MUSH ───────────────────────────────────────────────────────────────
+// -- ANSI / MUSH ---------------------------------------------------------------
 
 const RESET = "\x1b[0m", BOLD = "\x1b[1m", DIM = "\x1b[2m";
 const MUSH: Record<string, string> = {
@@ -53,7 +63,7 @@ const mush = (s: string) =>
 const itrp = (s: string, v: Record<string, string>) =>
   s.replace(/{{(\w+)}}/g, (_, k) => v[k] ?? "{{" + k + "}}");
 
-// ── Mock world ───────────────────────────────────────────────────────────────
+// -- Mock world ---------------------------------------------------------------
 
 function buildMockPlayer(name: string, flags: string[] = []): IDBObj {
   const id = "mock-" + name.toLowerCase().replace(/\s+/g, "-");
@@ -77,7 +87,7 @@ const MOCK_ROOM: IDBObj = {
   broadcast(_msg: string) {},
 };
 
-function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined)[], output: string[], allObjs: IDBObj[], roomCfg?: ShowcaseSetup["room"]): IUrsamuSDK {
+function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined)[], output: string[], allObjs: IDBObj[], roomCfg?: ShowcaseSetup["room"], dynamic?: IDBObj[]): IUrsamuSDK {
   const sid = "sid-" + player.id;
   const roomState: Record<string, unknown> = {};
   const desc = roomCfg?.description ?? roomCfg?.desc;
@@ -128,13 +138,13 @@ function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined
     cmd: { name: cmdName, original: "", args: args as string[] },
     here: room,
     send(msg: string) { output.push(msg); },
-    broadcast: () => {},
+    broadcast: (msg: string) => { output.push(msg); },
     ui,
     util: {
       // deno-lint-ignore no-control-regex
       stripSubs: (s: string) => s.replace(/\x1b\[[^m]*m/g, "").replace(/%c[a-z]/gi, ""),
       target: (_a: IDBObj, q: string) =>
-        Promise.resolve(allObjs.find((o) => o.name?.toLowerCase() === q.toLowerCase())),
+        Promise.resolve(allObjs.find((o) => o.id === q || o.name?.toLowerCase() === q.toLowerCase())),
       displayName: (o: IDBObj) => o.name ?? o.id,
       ljust: (s: string, w: number) => s.padEnd(w),
       rjust: (s: string, w: number) => s.padStart(w),
@@ -155,15 +165,95 @@ function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined
       },
       queryOne: (q: Record<string, unknown>) =>
         Promise.resolve(allObjs.find((o) => Object.entries(q).every(([k, v]) => (o as Record<string, unknown>)[k] === v))),
-      modify: () => Promise.resolve(),
+      modify: (id: string, op: string, data: Record<string, unknown>) => {
+        const obj = allObjs.find((o) => o.id === id);
+        if (!obj) return Promise.resolve();
+        const applyPath = (root: Record<string, unknown>, path: string, fn: (parent: Record<string, unknown>, leaf: string) => void) => {
+          const segs = path.split(".");
+          let cur = root as Record<string, unknown>;
+          for (let i = 0; i < segs.length - 1; i++) {
+            const s = segs[i];
+            if (cur[s] == null || typeof cur[s] !== "object") cur[s] = {};
+            cur = cur[s] as Record<string, unknown>;
+          }
+          fn(cur, segs[segs.length - 1]);
+        };
+        const root = obj as unknown as Record<string, unknown>;
+        // Engine convention: a `data.*` write is also reflected at `state.*`.
+        const expand = (p: string) =>
+          p.startsWith("data.") ? [p, "state." + p.slice(5)] : [p];
+        for (const [path, value] of Object.entries(data)) {
+          for (const realPath of expand(path)) {
+            if (op === "$set") applyPath(root, realPath, (p, k) => { p[k] = value; });
+            else if (op === "$unset") applyPath(root, realPath, (p, k) => { delete p[k]; });
+            else if (op === "$inc") applyPath(root, realPath, (p, k) => { p[k] = ((p[k] as number) ?? 0) + (value as number); });
+          }
+        }
+        return Promise.resolve();
+      },
+      create: (template: Partial<IDBObj>) => {
+        const obj: IDBObj = {
+          id: `obj-${allObjs.length + 1}-${Date.now()}`,
+          name: "",
+          flags: new Set<string>(),
+          location: null,
+          contents: [],
+          ...template,
+        } as IDBObj;
+        // Engine convention: state.* mirrors data.*. The mock keeps both in sync.
+        if ((obj as { state?: Record<string, unknown> }).state) {
+          (obj as { data?: Record<string, unknown> }).data ??= {};
+          for (const [k, v] of Object.entries((obj as { state: Record<string, unknown> }).state)) {
+            ((obj as { data: Record<string, unknown> }).data)[k] = v;
+          }
+        }
+        allObjs.push(obj);
+        if (dynamic) dynamic.push(obj);
+        if (obj.location) {
+          const parent = allObjs.find((o) => o.id === obj.location);
+          if (parent) {
+            parent.contents = parent.contents ?? [];
+            if (!parent.contents.includes(obj.id)) parent.contents.push(obj.id);
+          }
+        }
+        return Promise.resolve(obj);
+      },
+      destroy: (id: string) => {
+        const idx = allObjs.findIndex((o) => o.id === id);
+        if (idx < 0) return Promise.resolve();
+        const obj = allObjs[idx];
+        if (obj.location) {
+          const parent = allObjs.find((o) => o.id === obj.location);
+          if (parent?.contents) {
+            parent.contents = (parent.contents as string[]).filter((c) => c !== id);
+          }
+        }
+        allObjs.splice(idx, 1);
+        if (dynamic) {
+          const di = dynamic.findIndex((o) => o.id === id);
+          if (di >= 0) dynamic.splice(di, 1);
+        }
+        return Promise.resolve();
+      },
     },
     canEdit: () => Promise.resolve(true),
+    setFlags: (target: string | IDBObj, flags: string) => {
+      const id = typeof target === "string" ? target : target.id;
+      const obj = allObjs.find((o) => o.id === id);
+      if (!obj) return Promise.resolve();
+      obj.flags ??= new Set<string>();
+      for (const tok of flags.split(/\s+/).filter(Boolean)) {
+        if (tok.startsWith("!")) obj.flags.delete(tok.slice(1));
+        else obj.flags.add(tok);
+      }
+      return Promise.resolve();
+    },
     teleport: (targetId: string, destId: string) => {
       const obj = allObjs.find((o) => o.id === targetId);
       if (obj) obj.location = destId;
     },
     sys: {
-      uptime: () => Promise.resolve(3725), // 1h 02m 05s — stable showcase value
+      uptime: () => Promise.resolve(3725), // 1h 02m 05s -- stable showcase value
     },
     attr: {
       get: (id: string, name: string) => {
@@ -196,7 +286,7 @@ function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined
   } as unknown as IUrsamuSDK;
 }
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
+// -- Bootstrap ----------------------------------------------------------------
 
 let _loaded = false;
 let _allObjs: IDBObj[] = [];
@@ -211,7 +301,7 @@ async function ensureLoaded(objs: IDBObj[]) {
   shim.__shimSeed(_allObjs);
 }
 
-async function execCmd(raw: string, actor: IDBObj, allObjs: IDBObj[], roomCfg?: ShowcaseSetup["room"]): Promise<string[]> {
+async function execCmd(raw: string, actor: IDBObj, allObjs: IDBObj[], roomCfg?: ShowcaseSetup["room"], dynamic?: IDBObj[]): Promise<string[]> {
   await ensureLoaded(allObjs);
   const shim = await import("./ursamu-shim.ts");
   const output: string[] = [];
@@ -220,11 +310,11 @@ async function execCmd(raw: string, actor: IDBObj, allObjs: IDBObj[], roomCfg?: 
     output.push(msg);
   });
   try {
-    // No look-script overrides in this plugin — fall through to addCmd matching.
+    // No look-script overrides in this plugin -- fall through to addCmd matching.
     for (const cmd of shim.cmds) {
       const m = raw.trim().match(cmd.pattern);
       if (!m) continue;
-      const u = buildMockSDK(actor, cmd.name, m.slice(1), output, allObjs, roomCfg);
+      const u = buildMockSDK(actor, cmd.name, m.slice(1), output, allObjs, roomCfg, dynamic);
       try { await cmd.exec(u); } catch (e) { output.push("%ch%cr>> exec error: " + (e as Error).message + "%cn"); }
       return output;
     }
@@ -235,13 +325,15 @@ async function execCmd(raw: string, actor: IDBObj, allObjs: IDBObj[], roomCfg?: 
   }
 }
 
-// ── Rendering ────────────────────────────────────────────────────────────────
+// -- Rendering ----------------------------------------------------------------
 
 interface RunState {
   player: IDBObj;
   admin: IDBObj;
   targets: Map<string, IDBObj>;
   setup?: ShowcaseSetup;
+  /** Objects created at runtime via db.create -- persists across steps. */
+  dynamic: IDBObj[];
 }
 
 function actorFor(step: ShowcaseStep, state: RunState): IDBObj {
@@ -259,13 +351,18 @@ function findByName(state: RunState, name: string): IDBObj | undefined {
 }
 
 function allObjs(state: RunState): IDBObj[] {
-  return [state.player, state.admin, ...state.targets.values()];
+  return [state.player, state.admin, ...state.targets.values(), ...state.dynamic];
 }
 
+const VERIFY = true;
+const failures: { key: string; step: string; expect: string; actual: string }[] = [];
+let currentKey = "";
+let lastOut = "";
+
 async function renderStep(step: ShowcaseStep, vars: Record<string, string>, state: RunState): Promise<void> {
-  if (step.sub    != null) { console.log("\n" + DIM + "── " + step.sub + " " + "─".repeat(Math.max(0, 66 - step.sub.length)) + RESET); return; }
+  if (step.sub    != null) { console.log("\n" + DIM + "-- " + step.sub + " " + "-".repeat(Math.max(0, 66 - step.sub.length)) + RESET); return; }
   if (step.note   != null) { console.log("  " + DIM + itrp(step.note, vars) + RESET); return; }
-  if (step.reset)          { console.log("  " + DIM + "[state reset]" + RESET); return; }
+  if (step.reset)          { state.dynamic.length = 0; lastOut = ""; console.log("  " + DIM + "[state reset]" + RESET); return; }
   if (step.disconnect != null) {
     const o = findByName(state, step.disconnect);
     if (o) o.flags.delete("connected");
@@ -279,19 +376,35 @@ async function renderStep(step: ShowcaseStep, vars: Record<string, string>, stat
     return;
   }
   if (step.emit   != null) { console.log("  " + BOLD + "emit " + RESET + mush(itrp(step.emit, vars)) + (step.label ? "  " + DIM + "# " + step.label + RESET : "")); return; }
-  if (step.expect != null) { console.log("  " + DIM + "expect → " + step.expect + RESET); return; }
+  if (step.expect != null) {
+    const want = itrp(step.expect, vars);
+    const ok = lastOut.toLowerCase().includes(want.toLowerCase());
+    const tag = VERIFY ? (ok ? " [OK]" : " [FAIL]") : "";
+    console.log("  " + DIM + "expect -> " + want + RESET + tag);
+    if (VERIFY && !ok) failures.push({ key: currentKey, step: "expect", expect: want, actual: lastOut.slice(0, 240) });
+    return;
+  }
   if (step.cmd    != null) {
     const raw    = itrp(step.cmd, vars);
     const actor  = actorFor(step, state);
     const roleNt = step.as ? "  " + DIM + "[as: " + step.as + "]" + RESET : "";
     const lbl    = step.label ? "  " + DIM + "# " + step.label + RESET : "";
-    console.log("  " + BOLD + "> " + raw.split("\n")[0] + (raw.includes("\n") ? " …" : "") + RESET + roleNt + lbl);
-    const lines = await execCmd(raw, actor, allObjs(state), state.setup?.room);
-    for (const line of lines) for (const r of mush(line).split("\n")) console.log(r.trim() ? "     " + r : "");
+    console.log("  " + BOLD + "> " + raw.split("\n")[0] + (raw.includes("\n") ? " ..." : "") + RESET + roleNt + lbl);
+    const lines = await execCmd(raw, actor, allObjs(state), state.setup?.room, state.dynamic);
+    const plain: string[] = [];
+    for (const line of lines) {
+      const m = mush(line);
+      for (const r of m.split("\n")) {
+        if (r.trim()) console.log("     " + r);
+        plain.push(r);
+      }
+    }
+    lastOut = plain.join("\n");
+    if (VERIFY && /exec error/i.test(lastOut)) failures.push({ key: currentKey, step: raw, expect: "(no exec error)", actual: lastOut.slice(0, 240) });
   }
 }
 
-// ── CLI ──────────────────────────────────────────────────────────────────────
+// -- CLI ----------------------------------------------------------------------
 
 const CYAN = "\x1b[36m", GREEN = "\x1b[32m";
 
@@ -305,13 +418,13 @@ async function pickInteractive(files: ShowcaseFile[]): Promise<ShowcaseFile | nu
   const draw = (first: boolean) => {
     const lines = sorted.length + 3;
     if (!first) write(`\x1b[${lines}A\x1b[0J`);
-    console.log(BOLD + CYAN + "  Rhost Vision Showcases" + RESET + DIM + "  — ↑↓ navigate  Enter select  q quit" + RESET);
-    console.log(DIM + "  " + "─".repeat(60) + RESET);
+    console.log(BOLD + CYAN + "  Rhost Vision Showcases" + RESET + DIM + "  -- up/down navigate  Enter select  q quit" + RESET);
+    console.log(DIM + "  " + "-".repeat(60) + RESET);
     for (let i = 0; i < sorted.length; i++) {
       const sel = i === idx;
-      console.log((sel ? GREEN + "  ▶ " + BOLD : "    " + DIM) + showcaseLabel(sorted[i]) + RESET);
+      console.log((sel ? GREEN + "  > " + BOLD : "    " + DIM) + showcaseLabel(sorted[i]) + RESET);
     }
-    console.log(DIM + "  " + "─".repeat(60) + RESET);
+    console.log(DIM + "  " + "-".repeat(60) + RESET);
   };
   draw(true);
   hideCursor();
@@ -335,8 +448,8 @@ async function pickInteractive(files: ShowcaseFile[]): Promise<ShowcaseFile | nu
 }
 
 async function main(): Promise<void> {
-  const args = parse(Deno.args, { boolean: ["list", "help"], alias: { h: "help", l: "list" } });
-  if (args.help) { console.log("Usage: deno task showcase [key] [--list]\n  --list  List all showcases\n  --help  Show help"); return; }
+  const args = parse(Deno.args, { boolean: ["list", "help", "all"], alias: { h: "help", l: "list", a: "all" } });
+  if (args.help) { console.log("Usage: deno task showcase [key] [--list] [--all]\n  --list  List all showcases\n  --all   Run every showcase\n  --help  Show help"); return; }
 
   const files: ShowcaseFile[] = [];
   for await (const e of expandGlob(join(Deno.cwd(), "showcases", "*.json"))) {
@@ -344,6 +457,20 @@ async function main(): Promise<void> {
   }
   if (files.length === 0) { console.log("No showcase files found in showcases/"); return; }
 
+  if (args.all) {
+    const sorted = [...files].sort((a, b) => a.key.localeCompare(b.key));
+    for (const f of sorted) await runShowcase(f);
+    if (VERIFY) {
+      console.log("\n" + BOLD + "=== SHOWCASE VERIFY SUMMARY ===" + RESET);
+      console.log("Total showcases: " + sorted.length + "  Failures: " + failures.length);
+      for (const f of failures) {
+        console.log("\n[" + f.key + "] step=" + f.step);
+        console.log("  expect: " + f.expect);
+        console.log("  actual: " + f.actual.replace(/\n/g, " | "));
+      }
+    }
+    return;
+  }
   if (args.list) {
     console.log("\nAvailable showcases:\n");
     for (const f of files) console.log("  " + BOLD + f.key + RESET + "  " + DIM + showcaseLabel(f) + RESET);
@@ -372,6 +499,18 @@ async function main(): Promise<void> {
 }
 
 async function runShowcase(chosen: ShowcaseFile): Promise<void> {
+  currentKey = chosen.key;
+  lastOut = "";
+  __resetRng();
+  // Wipe the KV store at the very start (before any DBO connection is opened).
+  // Without this, DBO collections (combat, extended, social, npc, mail) persist
+  // between runs and break showcases that assume a clean slate. After the first
+  // execCmd, the KV is open and we can't safely remove the file.
+  if (!_loaded) {
+    for (const f of ["data/ursamu.db", "data/ursamu.db-shm", "data/ursamu.db-wal"]) {
+      try { await Deno.remove(join(Deno.cwd(), f)); } catch { /* missing */ }
+    }
+  }
   const player = buildMockPlayer(chosen.vars?.player ?? "Showcase Player");
   const admin  = buildMockPlayer("Admin", ["admin", "wizard"]);
   const vars   = chosen.vars ?? {};
@@ -399,7 +538,7 @@ async function runShowcase(chosen: ShowcaseFile): Promise<void> {
   const targets = new Map<string, IDBObj>();
   if (chosen.setup?.targets) {
     for (const [name, t] of Object.entries(chosen.setup.targets)) {
-      // If the caller's flags list lacks "player", honor it verbatim — these
+      // If the caller's flags list lacks "player", honor it verbatim -- these
       // are objects/exits, not characters. Otherwise treat as a connected player.
       const wantsPlayer = (t.flags ?? []).includes("player") || !t.flags;
       const tp = wantsPlayer
@@ -420,13 +559,13 @@ async function runShowcase(chosen: ShowcaseFile): Promise<void> {
     }
   }
 
-  const state: RunState = { player, admin, targets, setup: chosen.setup };
+  const state: RunState = { player, admin, targets, setup: chosen.setup, dynamic: [] };
 
-  console.log("\n" + BOLD + "═".repeat(70) + RESET);
+  console.log("\n" + BOLD + "=".repeat(70) + RESET);
   console.log(BOLD + "  " + showcaseLabel(chosen) + RESET);
-  console.log(BOLD + "═".repeat(70) + RESET);
+  console.log(BOLD + "=".repeat(70) + RESET);
   for (const step of chosen.steps) await renderStep(step, vars, state);
-  console.log("\n" + DIM + "─".repeat(70) + RESET + "\n");
+  console.log("\n" + DIM + "-".repeat(70) + RESET + "\n");
 }
 
 await main();
