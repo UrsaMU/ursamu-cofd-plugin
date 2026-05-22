@@ -4,6 +4,10 @@ import {
   COFD_MENTAL_SKILLS,
   COFD_PHYSICAL_SKILLS,
   COFD_SOCIAL_SKILLS,
+  COFD_VIRTUE_NAMES,
+  COFD_VICE_NAMES,
+  findVice,
+  findVirtue,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import type { CofdCgState } from "./state.ts";
@@ -29,8 +33,20 @@ export function validateCurrentStage(cgState: CofdCgState): { valid: boolean; er
       if (!sheet.virtue || sheet.virtue.trim().toLowerCase() === "unknown") {
         return { valid: false, error: "Virtue cannot be empty or 'Unknown'." };
       }
+      if (!findVirtue(sheet.virtue)) {
+        return {
+          valid: false,
+          error: `Invalid Virtue '${sheet.virtue}'. Valid Virtues: ${COFD_VIRTUE_NAMES.join(", ")}.`,
+        };
+      }
       if (!sheet.vice || sheet.vice.trim().toLowerCase() === "unknown") {
         return { valid: false, error: "Vice cannot be empty or 'Unknown'." };
+      }
+      if (!findVice(sheet.vice)) {
+        return {
+          valid: false,
+          error: `Invalid Vice '${sheet.vice}'. Valid Vices: ${COFD_VICE_NAMES.join(", ")}.`,
+        };
       }
       break;
 

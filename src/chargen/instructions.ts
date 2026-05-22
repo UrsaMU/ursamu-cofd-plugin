@@ -6,6 +6,7 @@ import {
   COFD_PHYSICAL_SKILLS,
   COFD_SOCIAL_SKILLS,
   COFD_MERITS,
+  splitMeritStorageKey,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 import { getStageName, type CofdCgState } from "./state.ts";
@@ -14,8 +15,49 @@ function ljust(s: string, w: number): string {
   return s + " ".repeat(Math.max(0, w - s.length));
 }
 
+/** ljust that ignores %c* color codes when measuring width. */
+function vljust(s: string, w: number): string {
+  const vis = s.replace(/%c[a-z]/gi, "").length;
+  return s + " ".repeat(Math.max(0, w - vis));
+}
+
 function formatDots(val: number): string {
-  return "%ch%cy" + "●".repeat(val) + "%cn%cx" + "○".repeat(5 - val) + "%cn";
+  const v = Math.max(0, Math.min(5, val));
+  return "%ch%cy" + "*".repeat(v) + "%cn%cx" + ".".repeat(5 - v) + "%cn";
+}
+
+/** Visible label "Name: ***.. (N)" padded to width w (color codes don't count). */
+function attrCell(label: string, val: number, w: number): string {
+  const labelStr = label + ":";
+  const tail = " (" + val + ")";
+  const visibleLen = labelStr.length + 5 + tail.length; // label+":" + dots(5) + tail
+  const pad = Math.max(1, w - visibleLen);
+  return `%ch${labelStr}%cn${" ".repeat(pad)}${formatDots(val)}${tail}`;
+}
+
+/** "Name(N)" cell, padded to w columns. */
+function skillCell(name: string, val: number, w: number): string {
+  const title = name.replace(/\b\w/g, (c) => c.toUpperCase());
+  return ljust(`${title}(${val})`, w);
+}
+
+/** Render three lists side-by-side as N rows of fixed-width cells. */
+function threeColumn(
+  left: string[],
+  mid: string[],
+  right: string[],
+  cellW: number,
+  gutter = " ",
+): string[] {
+  const rows = Math.max(left.length, mid.length, right.length);
+  const out: string[] = [];
+  for (let i = 0; i < rows; i++) {
+    const a = left[i] ?? " ".repeat(cellW);
+    const b = mid[i] ?? " ".repeat(cellW);
+    const c = right[i] ?? " ".repeat(cellW);
+    out.push("  " + a + gutter + b + gutter + c);
+  }
+  return out;
 }
 
 /**
@@ -28,13 +70,13 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
   const tmpl = COFD_TEMPLATES[tKey] || COFD_TEMPLATES.mortal;
 
   const lines: string[] = [];
-  lines.push(await header(`CHARACTER CREATION — STAGE ${stage}: ${getStageName(stage).toUpperCase()}`));
+  lines.push(await header(`CHARACTER CREATION -- STAGE ${stage}: ${getStageName(stage).toUpperCase()}`));
 
-  // Progress Bar
+  // Progress Bar -- compact form keeps the line under 78 cols.
   const steps = [1, 2, 3, 4, 5, 6].map(s => {
-    const name = `${s}:${getStageName(s).split(" ")[0]}`;
+    const name = getStageName(s).split(" ")[0];
     return s === stage ? `%ch%cy[${name}]%cn` : `[${name}]`;
-  }).join(" > ");
+  }).join(" ");
   lines.push(`  %chProgress:%cn ${steps}`);
   lines.push(await divider(""));
 
@@ -47,11 +89,12 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       lines.push(`    %ch%ccVirtue:%cn  ${sheet.virtue}`);
       lines.push(`    %ch%ccVice:%cn    ${sheet.vice}`);
       lines.push("");
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      lines.push("    +cg/set concept=<text>   — Define your character's high-level concept.");
-      lines.push("    +cg/set virtue=<text>    — Define your primary virtue.");
-      lines.push("    +cg/set vice=<text>      — Define your primary vice.");
-      lines.push("    +cg/next                 — Advance to the next stage once done.");
+      lines.push("    +cg/set concept=<text>   -- Define your character's high-level concept.");
+      lines.push("    +cg/set virtue=<text>    -- Define your primary virtue.");
+      lines.push("    +cg/set vice=<text>      -- Define your primary vice.");
+      lines.push("    +cg/next                 -- Advance to the next stage once done.");
       break;
 
     case 2:
@@ -60,10 +103,11 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       lines.push("");
       lines.push(`    %ch%ccSelected:%cn ${sheet.template.toUpperCase()} (${tmpl.name})`);
       lines.push("");
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      lines.push("    +cg/set template=<name>  — Set your template (e.g. +cg/set template=vampire).");
-      lines.push("    +cg/back                 — Go back to stage 1.");
-      lines.push("    +cg/next                 — Advance to stage 3.");
+      lines.push("    +cg/set template=<name>  -- Set your template (e.g. vampire).");
+      lines.push("    +cg/back                 -- Go back to stage 1.");
+      lines.push("    +cg/next                 -- Advance to stage 3.");
       break;
 
     case 3:
@@ -81,57 +125,67 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
         }
         lines.push("");
       }
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
       if (tmpl.customFields.length > 0) {
         for (const f of tmpl.customFields) {
-          lines.push(`    +cg/set ${f}=<value>    — Set your character's ${f}.`);
+          lines.push(`    +cg/set ${f}=<value>    -- Set your character's ${f}.`);
         }
       }
-      lines.push("    +cg/back                 — Go back to stage 2.");
-      lines.push("    +cg/next                 — Advance to stage 4.");
+      lines.push("    +cg/back                 -- Go back to stage 2.");
+      lines.push("    +cg/next                 -- Advance to stage 4.");
       break;
 
     case 4: {
-      lines.push("  Allocate dots across your Attributes. All attributes start with a baseline of 1.");
+      lines.push("  Allocate dots across your Attributes. All start at a baseline of 1.");
       lines.push("  You must allocate your groups so that the EXTRA dots allocated (above 1) sum");
-      lines.push("  up to a permutation of the pools: %ch5 dots%cn (Primary), %ch4 dots%cn (Secondary), and %ch3 dots%cn (Tertiary).");
+      lines.push("  up to a permutation of the pools: %ch5%cn / %ch4%cn / %ch3%cn dots.");
       lines.push("");
 
       const atts = sheet.attributes;
-      lines.push(`    %ch%ccMental Attributes:%cn (Current Extra: +${(atts.intelligence || 1) - 1 + (atts.wits || 1) - 1 + (atts.resolve || 1) - 1})`);
-      lines.push(`      Intelligence: ${formatDots(atts.intelligence || 1)} (${atts.intelligence})`);
-      lines.push(`      Wits:         ${formatDots(atts.wits || 1)} (${atts.wits})`);
-      lines.push(`      Resolve:      ${formatDots(atts.resolve || 1)} (${atts.resolve})`);
-
-      lines.push(`    %ch%ccPhysical Attributes:%cn (Current Extra: +${(atts.strength || 1) - 1 + (atts.dexterity || 1) - 1 + (atts.stamina || 1) - 1})`);
-      lines.push(`      Strength:     ${formatDots(atts.strength || 1)} (${atts.strength})`);
-      lines.push(`      Dexterity:    ${formatDots(atts.dexterity || 1)} (${atts.dexterity})`);
-      lines.push(`      Stamina:      ${formatDots(atts.stamina || 1)} (${atts.stamina})`);
-
-      lines.push(`    %ch%ccSocial Attributes:%cn (Current Extra: +${(atts.presence || 1) - 1 + (atts.manipulation || 1) - 1 + (atts.composure || 1) - 1})`);
-      lines.push(`      Presence:     ${formatDots(atts.presence || 1)} (${atts.presence})`);
-      lines.push(`      Manipulation: ${formatDots(atts.manipulation || 1)} (${atts.manipulation})`);
-      lines.push(`      Composure:    ${formatDots(atts.composure || 1)} (${atts.composure})`);
-      lines.push("");
-
       const mExt = (atts.intelligence || 1) - 1 + (atts.wits || 1) - 1 + (atts.resolve || 1) - 1;
       const pExt = (atts.strength || 1) - 1 + (atts.dexterity || 1) - 1 + (atts.stamina || 1) - 1;
       const sExt = (atts.presence || 1) - 1 + (atts.manipulation || 1) - 1 + (atts.composure || 1) - 1;
+      const W = 24;
+      lines.push(
+        "  " +
+          vljust(`%ch%ccMental%cn (+${mExt})`, W) + " " +
+          vljust(`%ch%ccPhysical%cn (+${pExt})`, W) + " " +
+          vljust(`%ch%ccSocial%cn (+${sExt})`, W),
+      );
+      const col1 = [
+        attrCell("Intelligence", atts.intelligence || 1, W),
+        attrCell("Wits",         atts.wits || 1,         W),
+        attrCell("Resolve",      atts.resolve || 1,      W),
+      ];
+      const col2 = [
+        attrCell("Strength",  atts.strength || 1,  W),
+        attrCell("Dexterity", atts.dexterity || 1, W),
+        attrCell("Stamina",   atts.stamina || 1,   W),
+      ];
+      const col3 = [
+        attrCell("Presence",     atts.presence || 1,     W),
+        attrCell("Manipulation", atts.manipulation || 1, W),
+        attrCell("Composure",    atts.composure || 1,    W),
+      ];
+      for (const r of threeColumn(col1, col2, col3, W)) lines.push(r);
+      lines.push("");
       const totalAllocated = mExt + pExt + sExt;
 
       lines.push(`    %chCurrent extra dots allocated:%cn ${totalAllocated} / 12 dots`);
       lines.push(`    %chAllocations:%cn Mental (+${mExt}), Physical (+${pExt}), Social (+${sExt})`);
       lines.push("");
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      lines.push("    +cg/set <attribute>=<dots> — Set an attribute dot rating (1 to 5).");
-      lines.push("    +cg/back                   — Go back to stage 3.");
-      lines.push("    +cg/next                   — Validate allocations and advance to stage 5.");
+      lines.push("    +cg/set <attribute>=<dots>  -- Set a rating (1 to 5).");
+      lines.push("    +cg/back                   -- Go back to stage 3.");
+      lines.push("    +cg/next                   -- Validate allocations and advance to stage 5.");
       break;
     }
 
     case 5: {
-      lines.push("  Allocate dots across your Skills. You have three skill pools to assign across");
-      lines.push("  Mental, Physical, and Social groups: %ch11 dots%cn (Primary), %ch9 dots%cn (Secondary), and %ch7 dots%cn (Tertiary).");
+      lines.push("  Allocate dots across your Skills. Three pools for the three groups:");
+      lines.push("  Mental / Physical / Social: %ch11%cn / %ch9%cn / %ch7%cn dots.");
       lines.push("");
 
       const sks = sheet.skills;
@@ -140,23 +194,28 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       const sSum = COFD_SOCIAL_SKILLS.reduce((acc, s) => acc + (sks[s] || 0), 0);
       const totalSkills = mSum + pSum + sSum;
 
-      lines.push(`    %ch%ccMental Skills:%cn (Total: ${mSum} dots)`);
-      lines.push("      " + COFD_MENTAL_SKILLS.map(s => `${s.replace(/\b\w/g, c => c.toUpperCase())}(${sks[s] || 0})`).join(", "));
-
-      lines.push(`    %ch%ccPhysical Skills:%cn (Total: ${pSum} dots)`);
-      lines.push("      " + COFD_PHYSICAL_SKILLS.map(s => `${s.replace(/\b\w/g, c => c.toUpperCase())}(${sks[s] || 0})`).join(", "));
-
-      lines.push(`    %ch%ccSocial Skills:%cn (Total: ${sSum} dots)`);
-      lines.push("      " + COFD_SOCIAL_SKILLS.map(s => `${s.replace(/\b\w/g, c => c.toUpperCase())}(${sks[s] || 0})`).join(", "));
+      const W = 24;
+      lines.push(
+        "  " +
+          vljust(`%ch%ccMental%cn (${mSum})`, W) + " " +
+          vljust(`%ch%ccPhysical%cn (${pSum})`, W) + " " +
+          vljust(`%ch%ccSocial%cn (${sSum})`, W),
+      );
+      const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+      const col1 = COFD_MENTAL_SKILLS.map((s) => attrCell(titleCase(s), sks[s] || 0, W));
+      const col2 = COFD_PHYSICAL_SKILLS.map((s) => attrCell(titleCase(s), sks[s] || 0, W));
+      const col3 = COFD_SOCIAL_SKILLS.map((s) => attrCell(titleCase(s), sks[s] || 0, W));
+      for (const r of threeColumn(col1, col2, col3, W)) lines.push(r);
       lines.push("");
 
       lines.push(`    %chCurrent skill dots allocated:%cn ${totalSkills} / 27 dots`);
       lines.push(`    %chAllocations:%cn Mental (${mSum}), Physical (${pSum}), Social (${sSum})`);
       lines.push("");
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      lines.push("    +cg/set <skill>=<dots> — Set a skill dot rating (0 to 5).");
-      lines.push("    +cg/back               — Go back to stage 4.");
-      lines.push("    +cg/next               — Validate skill pools and advance to stage 6.");
+      lines.push("    +cg/set <skill>=<dots> -- Set a skill dot rating (0 to 5).");
+      lines.push("    +cg/back               -- Go back to stage 4.");
+      lines.push("    +cg/next               -- Validate skill pools and advance to stage 6.");
       break;
     }
 
@@ -168,54 +227,57 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       if (sheet.template === "mage") startingDots = 6;
       if (sheet.template === "changeling") startingDots = 3;
 
-      lines.push(`  You have %ch${startingDots} starting dots%cn for supernatural powers, and exactly %ch7 starting dots%cn for merits.`);
+      lines.push(`  %ch${startingDots}%cn starting power dots, %ch7%cn merit dots.`);
       lines.push("");
 
+      const MW = 36;
       if (tmpl.validPowers.length === 0) {
-        lines.push("    No supernatural powers required for Mortals!");
+        lines.push("  No supernatural powers required for Mortals.");
         lines.push("");
       } else {
-        lines.push("    %ch%ccSupernatural Powers:%cn");
+        const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
+        lines.push(`  %ch%ccPowers%cn (${allocatedPowers} / ${startingDots})`);
         for (const p of tmpl.validPowers) {
           const title = p.replace(/\b\w/g, c => c.toUpperCase());
           const val = sheet.powers[p] || 0;
-          lines.push(`      ${ljust(title + ":", 18)} ${formatDots(val)} (${val})`);
+          lines.push("  " + attrCell(title, val, MW));
         }
-        const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
-        lines.push(`    %chPower dots allocated:%cn ${allocatedPowers} / ${startingDots} dots`);
         lines.push("");
       }
 
-      lines.push("    %ch%ccAcquired Merits:%cn");
+      const allocatedMerits = Object.keys(sheet.merits || {}).reduce((acc, m) => acc + (sheet.merits[m] || 0), 0);
+      lines.push(`  %ch%ccMerits%cn (${allocatedMerits} / 7)`);
       const activeMeritsList = Object.keys(sheet.merits || {}).filter(m => (sheet.merits[m] || 0) > 0);
       if (activeMeritsList.length === 0) {
-        lines.push("      No merits purchased yet.");
+        lines.push("  No merits purchased yet.");
       } else {
         for (const mKey of activeMeritsList) {
-          const found = COFD_MERITS.find(m => m.key === mKey);
-          const name = found ? found.name : mKey.replace(/\b\w/g, c => c.toUpperCase());
+          const { merit, qualifier } = splitMeritStorageKey(mKey);
+          const found = COFD_MERITS.find(m => m.key === merit);
+          const base = found ? found.name : merit.replace(/\b\w/g, c => c.toUpperCase());
+          const qual = qualifier ? ` (${qualifier.replace(/\b\w/g, c => c.toUpperCase())})` : "";
+          const name = base + qual;
           const val = sheet.merits[mKey] || 0;
-          lines.push(`      ${ljust(name + ":", 18)} ${formatDots(val)} (${val})`);
+          lines.push("  " + attrCell(name, val, MW));
         }
       }
-      const allocatedMerits = Object.keys(sheet.merits || {}).reduce((acc, m) => acc + (sheet.merits[m] || 0), 0);
-      lines.push(`    %chMerit dots allocated:%cn ${allocatedMerits} / 7 dots`);
       lines.push("");
 
+      lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
       if (tmpl.validPowers.length > 0) {
-        lines.push("    +cg/set <power>=<dots>  — Allocate dots to a starting power.");
+        lines.push("    +cg/set <power>=<dots>  -- Allocate dots to a starting power.");
       }
-      lines.push("    +cg/set <merit>=<dots>  — Allocate dots to a merit (or empty to reset/delete).");
-      lines.push("    +cg/back                — Go back to stage 5.");
-      lines.push("    +cg/submit              — Perform a final review and submit your sheet for approval!");
+      lines.push("    +cg/set <merit>=<dots>  -- Allocate dots (empty = clear).");
+      lines.push("    +cg/back                -- Go back to stage 5.");
+      lines.push("    +cg/submit              -- Final review and submit for approval.");
       break;
     }
   }
 
   lines.push(await divider(""));
   lines.push("  %chHelper Commands:%cn");
-  lines.push("    +cg/reset               — Discard all changes and restart character creation.");
+  lines.push("    +cg/reset               -- Discard all changes and restart.");
   lines.push(await footer());
 
   return lines.join("\n");

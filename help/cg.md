@@ -22,7 +22,7 @@ Notes:
 
 Examples:
   +cg/set concept=Street Detective
-  +cg/set virtue=Justice
+  +cg/set virtue=Just
   +cg/submit
   +cg/set template=vampire
   +cg/submit

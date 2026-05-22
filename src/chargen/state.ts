@@ -19,6 +19,8 @@ export interface CofdCgState {
   sheet: CofdSheet;
   isSubmitted: boolean;
   isApproved: boolean;
+  submittedJob?: number;
+  submittedAt?: number;
 }
 
 export function initCgState(): CofdCgState {
@@ -32,12 +34,12 @@ export function initCgState(): CofdCgState {
 
 export function getStageName(stage: number): string {
   switch (stage) {
-    case 1: return "Core Identity";
-    case 2: return "Supernatural Template";
-    case 3: return "Template Specifics";
-    case 4: return "Attributes Allocation";
-    case 5: return "Skills Allocation";
-    case 6: return "Supernatural Powers";
+    case 1: return "Concept & Anchors";
+    case 2: return "Template";
+    case 3: return "Template Details";
+    case 4: return "Attributes";
+    case 5: return "Skills";
+    case 6: return "Merits & Powers";
     default: return "Unknown";
   }
 }

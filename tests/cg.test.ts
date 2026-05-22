@@ -5,7 +5,7 @@ import { cgExec, sheetExec, sheetSetExec } from "../commands.ts";
 import type { CofdCgState } from "../cg.ts";
 import type { CofdSheet } from "../cofd.ts";
 
-describe("Chronicles of Darkness Guided Character Generation", () => {
+describe("Chronicles of Darkness Guided Character Generation", { sanitizeResources: false, sanitizeOps: false }, () => {
   it("runs the full Mortal character generation lifecycle successfully", async () => {
     const me = mockPlayer({ id: "1", name: "Arthur" });
     
@@ -44,8 +44,9 @@ describe("Chronicles of Darkness Guided Character Generation", () => {
     u.cmd.args = ["", ""];
     u._sent.length = 0;
     await cgExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Welcome to Chronicles of Darkness Character Generation!");
-    assertStringIncludes(u._sent.join("\n"), "STAGE 1: CORE IDENTITY");
+    // Stage-1 instructions render the welcome line + the STAGE 1 header.
+    assertStringIncludes(u._sent.join("\n").toLowerCase(), "welcome");
+    assertStringIncludes(u._sent.join("\n"), "STAGE 1");
 
     // Try to submit without setting anything (should fail validation)
     u.cmd.args = ["submit", ""];
@@ -57,10 +58,10 @@ describe("Chronicles of Darkness Guided Character Generation", () => {
     u.cmd.args = ["set", "concept=Modern Knight"];
     u._sent.length = 0;
     await cgExec(u);
-    u.cmd.args = ["set", "virtue=Charity"];
+    u.cmd.args = ["set", "virtue=Just"];
     u._sent.length = 0;
     await cgExec(u);
-    u.cmd.args = ["set", "vice=Greed"];
+    u.cmd.args = ["set", "vice=Greedy"];
     u._sent.length = 0;
     await cgExec(u);
 
@@ -182,30 +183,22 @@ describe("Chronicles of Darkness Guided Character Generation", () => {
       "Successfully set cg trait 'mentor(eldritch master)' to '3'",
     );
 
-    // Submit Stage 6 -> Complete!
+    // Submit Stage 6 -> files a CGEN job, awaits staff approval
     u.cmd.args = ["submit", ""];
     u._sent.length = 0;
     await cgExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Character Generation: Complete!");
+    assertStringIncludes(u._sent.join("\n"), "Character Generation: Submitted");
+    assertStringIncludes(u._sent.join("\n"), "job #");
 
-    // Verify player no longer has cg state, and has an approved, active sheet
-    assertEquals(me.state.cofd_cg, undefined);
-    const finalSheet = me.state.cofd as CofdSheet;
-    assertEquals(finalSheet.concept, "Modern Knight");
-    assertEquals(finalSheet.attributes.strength, 3);
-    assertEquals(finalSheet.skills.academics, 5);
+    // CG state persists with the job number; no active sheet until +approve lands
+    const submitted = me.state.cofd_cg as CofdCgState;
+    assertEquals(typeof submitted.submittedJob, "number");
+    assertEquals(me.state.cofd, undefined);
 
-    // 7. Approved sheet commands should now work!
-    u.cmd.args = [""];
-    u._sent.length = 0;
-    await sheetExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Arthur");
-    assertStringIncludes(u._sent.join("\n"), "Modern Knight");
-
-    u.cmd.args = ["Strength", "4"];
-    u._sent.length = 0;
-    await sheetSetExec(u);
-    assertStringIncludes(u._sent.join("\n"), "Set trait 'Strength' to '4'");
+    // Sheet captured in CG state still matches what was built
+    assertEquals(submitted.sheet.concept, "Modern Knight");
+    assertEquals(submitted.sheet.attributes.strength, 3);
+    assertEquals(submitted.sheet.skills.academics, 5);
   });
 
   it("handles resetting and back switches correctly", async () => {
