@@ -14,11 +14,14 @@ import {
   inventoryItems,
   itemData,
   lookupItem,
+  parseWeaponTags,
   reloadItem,
   roomItems,
   unequipItem,
 } from "../equipment/index.ts";
 import { type CofdSheet } from "../stats/index.ts";
+import { getEncounterForRoom } from "../combat/encounter.ts";
+import { hasMatchingQuickDraw } from "../combat/modifiers.ts";
 
 function splitForTarget(rest: string): { body: string; target: string } {
   const idx = rest.toLowerCase().lastIndexOf(" for ");
@@ -102,7 +105,8 @@ async function gearShow(u: IUrsamuSDK, key: string) {
       lines.push(`  Strength:     ${w.strength}`);
       lines.push(`  Size:         ${w.size}`);
       lines.push(`  Availability: ${dots(w.availability)}`);
-      if (w.ranges) lines.push(`  Ranges:       ${w.ranges}`);
+      if (w.ranges) lines.push(`  Range:        ${w.ranges}`);
+      if (w.capacity) lines.push(`  Capacity:     ${w.capacity}`);
       if (w.clip !== undefined) lines.push(`  Clip:         ${w.clip}`);
       if (w.special) lines.push(`  Special:      ${w.special}`);
       if (w.example) lines.push(`  Example:      ${w.example}`);
@@ -186,9 +190,39 @@ async function gearEquip(u: IUrsamuSDK, rest: string) {
     : { ...eq, equippedArmor: result.equippedId };
   await u.db.modify(ctx.target.id, "$set", { "data.cofd": { ...ctx.sheet, equipment: newEq } });
   const items = await u.db.search({ id: result.equippedId } as any);
-  const name = items[0] ? displayName(items[0]) : result.equippedId;
+  const equipped = items[0];
+  const name = equipped ? displayName(equipped) : result.equippedId;
   const who = ctx.sameTarget ? "you" : u.util.displayName(ctx.target, u.me);
   u.send(`${who} now ${result.slot === "armor" ? "wears" : "wields"} %ch${name}%cn.`);
+
+  // Slow weapons drawn during active combat cost an instant action -- unless
+  // the actor has the matching Quick Draw merit for the weapon's class.
+  if (result.slot === "weapon" && equipped) {
+    const itemKey = itemData(equipped)?.key;
+    const catalog = itemKey ? lookupItem(itemKey) : null;
+    const tags = parseWeaponTags((catalog?.entry as { special?: string } | undefined)?.special);
+    if (tags.slow) {
+      const roomId = u.here?.id;
+      const enc = roomId ? await getEncounterForRoom(roomId) : null;
+      const isParticipant = !!enc &&
+        enc.status === "active" &&
+        enc.participants.some((p) => p.actorId === ctx.target.id);
+      if (isParticipant) {
+        // Map catalog type to Quick Draw qualifier (firearms / melee).
+        const weaponClass = catalog?.type === "weapon-ranged"
+          ? "firearms"
+          : catalog?.type === "weapon-melee"
+            ? "melee"
+            : null;
+        if (!hasMatchingQuickDraw(ctx.sheet, weaponClass)) {
+          const subj = ctx.sameTarget ? "You spend" : `${who} spends`;
+          u.send(
+            `%cyNote:%cn ${subj} an instant action drawing the %ch${name}%cn (Slow). This is ${ctx.sameTarget ? "your" : "their"} turn.`,
+          );
+        }
+      }
+    }
+  }
 }
 
 async function gearUnequip(u: IUrsamuSDK, rest: string) {
@@ -267,7 +301,7 @@ async function gearGive(u: IUrsamuSDK, rest: string) {
   );
 }
 
-async function gearReload(u: IUrsamuSDK, rest: string) {
+export async function gearReload(u: IUrsamuSDK, rest: string) {
   const { body, target: targetName } = splitForTarget(rest);
   const ctx = await resolveTarget(u, targetName);
   if (!ctx) return;

@@ -7,8 +7,10 @@
     "jsr:@std/dotenv@0.224": "0.224.2",
     "jsr:@std/encoding@0.224.0": "0.224.0",
     "jsr:@std/flags@0.224": "0.224.0",
+    "jsr:@std/fmt@0.224": "0.224.0",
     "jsr:@std/fs@0.224": "0.224.0",
     "jsr:@std/fs@0.224.0": "0.224.0",
+    "jsr:@std/internal@0.224": "0.224.0",
     "jsr:@std/internal@^1.0.12": "1.0.13",
     "jsr:@std/internal@^1.0.13": "1.0.13",
     "jsr:@std/path@*": "0.224.0",
@@ -30,7 +32,11 @@
   },
   "jsr": {
     "@std/assert@0.224.0": {
-      "integrity": "8643233ec7aec38a940a8264a6e3eed9bfa44e7a71cc6b3c8874213ff401967f"
+      "integrity": "8643233ec7aec38a940a8264a6e3eed9bfa44e7a71cc6b3c8874213ff401967f",
+      "dependencies": [
+        "jsr:@std/fmt",
+        "jsr:@std/internal@0.224"
+      ]
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -50,11 +56,20 @@
         "jsr:@std/assert@0.224"
       ]
     },
+    "@std/fmt@0.224.0": {
+      "integrity": "e20e9a2312a8b5393272c26191c0a68eda8d2c4b08b046bad1673148f1d69851"
+    },
     "@std/fs@0.224.0": {
       "integrity": "52a5ec89731ac0ca8f971079339286f88c571a4d61686acf75833f03a89d8e69",
       "dependencies": [
         "jsr:@std/assert@0.224",
         "jsr:@std/path@0.224"
+      ]
+    },
+    "@std/internal@0.224.0": {
+      "integrity": "afc50644f9cdf4495eeb80523a8f6d27226b4b36c45c7c195dfccad4b8509291",
+      "dependencies": [
+        "jsr:@std/fmt"
       ]
     },
     "@std/internal@1.0.13": {
@@ -483,7 +498,30 @@
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/providers/file.ts": "c9919d21ca05803981e4e92645fbd55927e9664f065be50022d555563441c087",
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/registry.ts": "5a7e3fae65bcfdd23834a7982b8c2315688e81ac78e049f9c456987757f2473e",
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/renderer.ts": "e3c5d53e735557a38202a75725c1daa131b072f791e660829c1b27153ef0756a",
-    "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/routes.ts": "d3a0580478b9d60d4961830310e104735d10b53ddc761d72374fd2ed22d5f506"
+    "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/routes.ts": "d3a0580478b9d60d4961830310e104735d10b53ddc761d72374fd2ed22d5f506",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/mod.ts": "4fe96c897a7de7b96d23efa09bcb09d3bafdc7fde18987d381e66120454fc2b4",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/archive-cmd.ts": "9cca1160fb0631c44d4bb9f3147b40abf8a6c6d80b656f3bc834adc9556cb0b7",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/commands.ts": "4ae561513011cf29eecb65e558de296506fd6805d9aa8238ea382e35bc6e619d",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/db.ts": "7ef85b5caf24d1a237fe6a85fbeb8e678032979d26596bb8a8e01d76b718b1d9",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/format.ts": "929e7920ca21f7f9781627b68e291937fe64a4e610a32ec93faac48eb3837a99",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/game-hooks-augment.ts": "2af407f111dc27b6cf12a180493d87b0efba1ccfb15918b96f77e47e7ca7de45",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/hooks.ts": "eeda2d6ceee65f27044c3ec7faf03818cc505b1dcb7dbafbecc22c2efd03ec78",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/index.ts": "3e4d5ce4057a8eb9fc828936087cdbf23ac222a55f7c51c90554ed6aadd827b0",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/job-utils.ts": "a03831aa5c2a9c188dcb88949c9e6e2f34b2e77e6b536963221e0be15c636f62",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/mail.ts": "09113f66ba3cd143557aa7325e6e0fb125fd2cdbf5e9dfd6662c61d8ed887403",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/notify.ts": "bba710c237e973c128c188073a7990e817e4a17867bd3f7176cb860865b42fda",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/request-cmd.ts": "eb419bf5e780fa8e17b55098dd525d899be65aa4c6b1cb1a9768541bbb444f23",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/router.ts": "ecb5b1618d70985d80da53c7d0f62ec21f91bc89dba358abd4294348bedaced6",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/staff-cmd.ts": "84499c095d0c3f397679e2b539dc6ec91f6da299d1a27a38f89d85eb903e3192",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/theme.ts": "6a025cc5cd2da37fd47a1216efb5e58ca568cb8ad420d6e87ba92874efe49a39",
+    "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/src/types.ts": "7b8558223160b0219561d512a42b50984829944c04f83b89727b24075ef2df80",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/commands.ts": "fdbfc6272beaf9d035f44697a0ff8dbef71c7d0d0506a07bd973cca88214afcb",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/index.ts": "8f50874397c08619c216e3736d9e52f01e1216e42f36789145349ce2e0720321",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/mailComposeActions.ts": "25709b0c7598c745756f69b2bb7fe518a07348c3fd4356d2dea7777beb862380",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/mailDbo.ts": "125f96002ec5424f9f41731b9a8db43e10f77aac5f6b62d8335fb9141c1d42f3",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/mailHelpers.ts": "586b9966f881e974b36e5d0c0329c03c7c9e2f264a2cd732736e8ad74434dae6",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/mailInboxActions.ts": "9741c8448f652cd0811e4861bec82fd6f761286229e6592e75b06f5943b37203",
+    "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/routes.ts": "1fb5831395ad769e380c3b10fcaa612ffdcf275abec65bf2233e1d5d614c46ad"
   },
   "workspace": {
     "dependencies": [

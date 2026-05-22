@@ -61,7 +61,7 @@
     { "note": "+gear/equip moves an item into its natural slot. Armor immediately applies its Defense/Speed penalty." },
     { "cmd": "+gear/equip 1", "label": "wear armor" },
     { "expect": "wears" },
-    { "cmd": "+gear/equip 2", "label": "wield pistol" },
+    { "cmd": "+gear/equip 1", "label": "wield pistol" },
     { "expect": "wields" },
 
     { "sub": "View Your Loadout" },
@@ -75,7 +75,7 @@
 
     { "sub": "Unequip" },
     { "cmd": "+gear/unequip armor", "label": "drop armor" },
-    { "expect": "removes the armor" },
+    { "expect": "remove the armor" },
 
     { "sub": "Remove" },
     { "cmd": "+gear/remove 1", "label": "discard kevlar" },

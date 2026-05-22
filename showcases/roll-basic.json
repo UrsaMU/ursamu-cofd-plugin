@@ -1,6 +1,6 @@
 {
   "key": "roll-basic",
-  "title": "+roll — D10 10-again roller",
+  "title": "+roll -- D10 10-again roller",
   "description": "Demonstrates the +roll command: attribute+skill combos, raw dice pools, modifiers, specialties, and Willpower spending.",
   "vars": { "player": "Katya" },
   "setup": {
@@ -39,36 +39,36 @@
     { "sub": "Raw Dice Pool" },
     { "note": "A bare number rolls that many dice." },
     { "cmd": "+roll 5", "label": "roll 5 dice" },
-    { "expect": "Successes" },
+    { "expect": "success" },
 
     { "sub": "Attribute + Skill" },
     { "note": "Attribute+Skill sums their values. Names are case-insensitive." },
     { "cmd": "+roll Wits+Investigation", "label": "Wits 3 + Investigation 3 = 6 dice" },
-    { "expect": "Successes" },
+    { "expect": "success" },
 
     { "sub": "With a Modifier" },
     { "note": "Append a positive or negative integer modifier." },
     { "cmd": "+roll Dexterity+Firearms+2", "label": "Dex 3 + Firearms 2 + 2 = 7 dice" },
-    { "expect": "Successes" },
+    { "expect": "success" },
 
     { "sub": "With a Specialty Bonus" },
-    { "note": "Append the specialty name after a slash — grants +1 die (8-again quality)." },
+    { "note": "Append the specialty name after a slash -- grants +1 die (8-again quality)." },
     { "cmd": "+roll Wits+Investigation/Crime Scenes", "label": "uses Crime Scenes specialty for +1" },
-    { "expect": "Successes" },
+    { "expect": "success" },
 
     { "sub": "Spending Willpower" },
     { "note": "+roll/wp deducts 1 current Willpower and adds 3 dice to the pool." },
     { "cmd": "+roll/wp Resolve+Composure", "label": "spend Willpower for +3" },
-    { "expect": "Willpower" },
+    { "expect": "+WP" },
 
     { "sub": "Untrained Penalty" },
     { "note": "Using a Mental or Social skill at 0 dots incurs a -3 penalty." },
-    { "cmd": "+roll Intelligence+Occult", "label": "Occult is 0 — untrained penalty applies" },
-    { "expect": "Successes" },
+    { "cmd": "+roll Intelligence+Occult", "label": "Occult is 0 -- untrained penalty applies" },
+    { "expect": "success" },
 
     { "sub": "Chance Die" },
     { "note": "If the pool is <= 0 after penalties, a single chance die is rolled (only 10 succeeds)." },
     { "cmd": "+roll 0", "label": "zero-pool triggers chance die" },
-    { "expect": "Chance Die" }
+    { "expect": "chance" }
   ]
 }

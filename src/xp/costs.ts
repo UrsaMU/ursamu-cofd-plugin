@@ -76,7 +76,7 @@ export function categorizeTrait(traitName: string, sheet: CofdSheet): string | n
   if (COFD_ATTRIBUTES.includes(key)) return "attribute";
   if (COFD_SKILLS.includes(key)) return "skill";
 
-  // Merits — accept qualified form: language(spanish), contacts:police.
+  // Merits -- accept qualified form: language(spanish), contacts:police.
   const meritRef = parseMeritRef(key);
   if (COFD_MERITS.find(m => m.key === meritRef.merit)) return "merit";
 

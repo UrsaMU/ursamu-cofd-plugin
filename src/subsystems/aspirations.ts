@@ -1,4 +1,4 @@
-// Aspirations subsystem — pure functions over CofdSheet.
+// Aspirations subsystem -- pure functions over CofdSheet.
 //
 // CoFD 2e characters carry up to three (3) active Aspirations: typically two
 // short-term and one long-term. Fulfilling an Aspiration grants 1 Beat and

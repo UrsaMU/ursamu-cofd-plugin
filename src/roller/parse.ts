@@ -247,7 +247,7 @@ export function parseRollExpression(expr: string, sheet: CofdSheet): ParsedRoll 
     return { pool: 0, terms: [], appliedSpecialties: [], untrainedPenaltyApplied: 0, error: "Could not parse any traits in roll expression." };
   }
 
-  // Apply wound penalty automatically (skipped on raw-pool rolls — handled by
+  // Apply wound penalty automatically (skipped on raw-pool rolls -- handled by
   // the earlier `/^[+-]?\d+$/` branch which returns early).
   if (sheet.health) {
     const wp = woundPenalty(sheet.health, healthMax(sheet));

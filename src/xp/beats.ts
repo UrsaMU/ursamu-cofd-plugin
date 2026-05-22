@@ -26,7 +26,7 @@ export function convertBeatsToXp(
 
 /**
  * Adds `n` Beats (or Arcane Beats) to the sheet, rolling complete 5-stacks
- * into the matching Experience pool. Pure — returns a new sheet.
+ * into the matching Experience pool. Pure -- returns a new sheet.
  *
  * Negative `n` is supported for ST corrections; the function never lets a
  * pool fall below zero.

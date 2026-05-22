@@ -1,7 +1,7 @@
 // Vampire: The Requiem 2e overlay data.
 //
-// Loads enriched static data from templates/vampire.json — Banes, Disciplines,
-// and the Blood Potency table — and exposes typed helpers for sheet sections,
+// Loads enriched static data from templates/vampire.json -- Banes, Disciplines,
+// and the Blood Potency table -- and exposes typed helpers for sheet sections,
 // commands, and tests. Pure module: no `u.*` SDK dependencies.
 
 export interface VampireBane {

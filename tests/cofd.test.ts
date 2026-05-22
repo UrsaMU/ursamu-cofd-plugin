@@ -111,8 +111,9 @@ describe("+roll command", () => {
 
     await rollExec(u);
     assertStringIncludes(u._sent[0], "ROLL>>");
-    // Roller sees the verbose form with trait values: "Strength(1)+Athletics(0,...)".
-    assertStringIncludes(u._sent[0].toLowerCase(), "strength");
+    // Roller sees the compact form: attributes abbreviated, skills full,
+    // e.g. "Str+Athletics".
+    assertStringIncludes(u._sent[0], "Str");
     assertStringIncludes(u._sent[0].toLowerCase(), "athletics");
   });
 
@@ -130,7 +131,8 @@ describe("+roll command", () => {
     });
 
     await rollExec(u);
-    assertStringIncludes(u._sent[0], "rolls/wp");
+    // Compact form puts the WP token in the roll expression, not the verb suffix.
+    assertStringIncludes(u._sent[0], "WP");
     // Should have updated database to spend 1 willpower
     assertEquals(u._dbCalls.length, 1);
     const updatedSheet = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;

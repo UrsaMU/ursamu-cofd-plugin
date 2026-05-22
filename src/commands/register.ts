@@ -2,7 +2,13 @@
 // Imported for side effects from the top-level commands.ts shim.
 
 import { addCmd, type IUrsamuSDK } from "@ursamu/ursamu";
-import { sheetExec, sheetSetExec } from "./sheet.ts";
+import {
+  sheetExec,
+  sheetRestExec,
+  sheetSetExec,
+  sheetViceExec,
+  sheetVirtueExec,
+} from "./sheet.ts";
 import { rollExec } from "./roll.ts";
 import { cgExec } from "./chargen.ts";
 import { healthExec } from "./health.ts";
@@ -14,23 +20,87 @@ import { vitaeExec } from "./vitae.ts";
 import { touchstoneExec } from "./touchstone.ts";
 import { approveExec, unapproveExec } from "./approve.ts";
 import { notesExec } from "./notes.ts";
-import { gearExec } from "./gear.ts";
+import { gearExec, gearReload } from "./gear.ts";
 import { tiltExec } from "./tilt.ts";
 import { proveExec } from "./prove.ts";
 import { combatExec } from "./combat.ts";
 import { attackExec } from "./attack.ts";
 import { grappleExec } from "./grapple.ts";
+import { throwExec } from "./throw.ts";
+import { npcExec } from "./npc.ts";
+import { aidExec } from "./aid.ts";
+import { socialExec } from "./social.ts";
+import { integrityExec } from "./integrity.ts";
+import { extendedExec } from "./extended.ts";
+
+addCmd({
+  name: "+extended",
+  pattern: /^\+extended(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+extended[/sw] [args]  -- Manage CoFD 2e Extended Actions (core p.70).
+
+Switches:
+  /start <pool>=<target>[/<maxRolls>][/<interval>][/cum] <description>
+                                   Open a new action (owner = you). Default
+                                   maxRolls is Resolve+Composure. Interval
+                                   default is scene. Add /cum for cumulative
+                                   penalty (each attempt subtracts attempts-so-far).
+  /roll [<extra-mod>]              Roll your single active action. Stacks with
+                                   /wp /rote /9again /8again. Dramatic failure
+                                   imposes -2 on the next attempt.
+  /status [<id>]                   Show the action (default: your active one).
+  /list [mine|here|all]            List actions in scope. /list all is staff-only.
+  /abandon <id>                    Cancel an action (owner or staff).
+  /finish <id>                     Staff: force success.
+  /contest <idA>+<idB>             Staff: link two actions; when one succeeds
+                                   the sibling is auto-abandoned.
+
+Examples:
+  +extended/start intelligence+occult=10 Decipher the grimoire
+  +extended/start strength+stamina=15/6/hour/cum Force the cell door
+  +extended/roll
+  +extended/roll/wp/9again -1
+  +extended/status
+  +extended/list here
+  +extended/abandon ext-12345-678`,
+  exec: extendedExec,
+});
 
 addCmd({
   name: "+sheet",
   pattern: /^\+sheet(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+sheet [<player>]  — View a character's Chronicles of Darkness sheet.`,
+  help: `+sheet [<player>]  -- View a character's Chronicles of Darkness sheet.
+
+Switches:
+  /set <trait>=<value>             Modify a trait. Specialty descriptions use
+                                   'specialty/<skill>=<name>: <description>'.
+                                   Size is staff-only (admin/builder).
+  /virtue [<player>] [= <reason>]  Restore full Willpower -- Virtue triggered
+                                   in a meaningful scene. Cross-player edits
+                                   require canEdit (builder+).
+  /vice [<player>] [= <reason>]    Restore +1 Willpower -- Vice indulged.
+  /rest [<player>] [= <reason>]    Restore full Willpower -- a full night's
+                                   rest.
+
+Examples:
+  +sheet
+  +sheet/set specialty/brawl=Boxing: southpaw stance
+  +sheet/virtue = Stood up to the prince
+  +sheet/vice = One drink too many
+  +sheet/rest`,
   exec: async (u: IUrsamuSDK) => {
     const sw = (u.cmd.args[0] ?? "").toLowerCase().trim();
     if (sw === "set") {
       await sheetSetExec(u);
+    } else if (sw === "virtue" || sw === "virtue-trigger") {
+      await sheetVirtueExec(u);
+    } else if (sw === "vice" || sw === "vice-indulge") {
+      await sheetViceExec(u);
+    } else if (sw === "rest") {
+      await sheetRestExec(u);
     } else {
       await sheetExec(u);
     }
@@ -42,7 +112,7 @@ addCmd({
   pattern: /^\+roll(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+roll[/wp][/rote][/weapon][/9again|/8again] <expression>  — Perform a Chronicles of Darkness D10 roll.
+  help: `+roll[/wp][/rote][/weapon][/9again|/8again] <expression>  -- Perform a Chronicles of Darkness D10 roll.
 
 Switches:
   /wp        Spends 1 current Willpower to add +3 dice to the pool.
@@ -71,7 +141,7 @@ addCmd({
   pattern: /^\+health(?:\/([a-z\-]+\d*))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+health [<player>]  — View or modify a character's Health track.
+  help: `+health [<player>]  -- View or modify a character's Health track.
 
 Switches:
   /bash[<n>]       Apply N bashing damage (default 1).
@@ -99,7 +169,7 @@ addCmd({
   pattern: /^\+beat(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+beat [/add|/sub][/arcane] [<player>] [= <reason>]  — Award or subtract a Beat.
+  help: `+beat [/add|/sub][/arcane] [<player>] [= <reason>]  -- Award or subtract a Beat.
 
 Switches:
   /add         Award 1 Beat (default self).
@@ -123,7 +193,7 @@ addCmd({
   pattern: /^\+xp(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+xp [<player>]  — View XP pools, spend XP to raise traits, or list costs.
+  help: `+xp [<player>]  -- View XP pools, spend XP to raise traits, or list costs.
 
 Switches:
   /spend <trait>=<dots> [for <player>]   Spend XP to raise a trait.
@@ -244,12 +314,13 @@ addCmd({
   pattern: /^\+cg(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+cg [<switch>] [<args>]  — Guided character generation experience.
+  help: `+cg [<switch>] [<args>]  -- Guided character generation experience.
 
 Switches:
-  /reset       — Start over with a clean character sheet.
-  /set <k>=<v> — Set character generation fields/traits.
-  /submit      — Validate current stage and advance (or finalize sheet).
+  /reset       -- Start over with a clean character sheet.
+  /set <k>=<v> -- Set character generation fields/traits.
+  /back        -- Return to the previous stage.
+  /submit      -- Validate the current stage and advance (or finalize sheet).
 
 Example usage:
   +cg
@@ -267,7 +338,7 @@ addCmd({
   pattern: /^\+approve(?:\/(\S+))?\s*(.*)/i,
   lock: "connected admin+",
   category: "Cofd",
-  help: `+approve <player>[=<notes>]  — Approve a pending Chronicles of Darkness chargen submission.
+  help: `+approve <player>[=<notes>]  -- Approve a pending Chronicles of Darkness chargen submission.
 
 Closes the player's CGEN job, copies their submitted sheet onto the live
 character record, and notifies them.
@@ -283,7 +354,7 @@ addCmd({
   pattern: /^\+unapprove(?:\/(\S+))?\s*(.*)/i,
   lock: "connected admin+",
   category: "Cofd",
-  help: `+unapprove <player>=<reason>  — Return a pending Chronicles of Darkness submission for revision.
+  help: `+unapprove <player>=<reason>  -- Return a pending Chronicles of Darkness submission for revision.
 
 Reopens the player's CGEN job with a staff comment and clears the
 submitted-job marker so the player can edit and resubmit. The CG state
@@ -366,6 +437,21 @@ Examples:
 });
 
 addCmd({
+  name: "+reload",
+  pattern: /^\+reload\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+reload [<#>] [for <player>]  -- Reload an equipped or carried firearm.
+
+Equivalent to +gear/reload. Without a slot number, reloads the equipped
+weapon. See help +gear for inventory management.`,
+  exec: async (u: IUrsamuSDK) => {
+    const rest = u.util.stripSubs(u.cmd.args[0] ?? "").trim();
+    await gearReload(u, rest);
+  },
+});
+
+addCmd({
   name: "+tilt",
   pattern: /^\+tilt(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
@@ -377,7 +463,7 @@ Switches:
   /show <key>                            Full Tilt entry.
   /add <key>[/<note>] [for <player>]     Inflict a Tilt.
   /remove <key> [for <player>]           Remove a Tilt (no Beats awarded).
-  /clear [for <player>]                  End-of-scene sweep — clear all Tilts.
+  /clear [for <player>]                  End-of-scene sweep -- clear all Tilts.
 
 Tilts award no Beats on resolution (CoFD 2e core p.282).
 Cross-player edits require canEdit (builder+).
@@ -388,7 +474,7 @@ Examples:
   +tilt/show stunned             Show the Stunned Tilt.
   +tilt/add stunned              Apply Stunned to yourself.
   +tilt/add ice for Marcus       Apply Ice to Marcus (builder+).
-  +tilt/clear                    End scene — wipe your Tilts.`,
+  +tilt/clear                    End scene -- wipe your Tilts.`,
   exec: tiltExec,
 });
 
@@ -397,7 +483,7 @@ addCmd({
   pattern: /^\+notes(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+notes [...]  — Character notes with public/private visibility.
+  help: `+notes [...]  -- Character notes with public/private visibility.
 
 Syntax:
   +notes                        Show your own notes.
@@ -422,32 +508,43 @@ addCmd({
   help: `+combat [/switch] [<args>]  -- Manage a Chronicles of Darkness combat encounter.
 
 Switches:
-  /start                   Start a new encounter in the current room.
+  /start                   Open a new encounter in the current room.
   /join [for <player>]     Add yourself (or another player) to the encounter.
+                           Auto-opens an encounter here if none exists.
   /leave [for <player>]    Remove yourself (or another player) from the encounter.
   /begin                   Roll initiative for all participants and begin.
+                           Auto-opens and adds you if none exists.
   /next                    Advance to the next participant's turn.
   /end                     Resolve the encounter and dismiss participants.
   /order                   Show the current initiative table.
   /ambush <target>         Contested Dex+Stealth vs Wits+Composure ambush check.
+  /recover                 Spend 1 Willpower to clear your Beaten Down state.
+  /surrender               Declare surrender; attackers cannot target you.
+  /breakpin                Spend 1 Willpower to break suppression-pin.
+  /cover <level> [for <player>]    Declare cover. Level: partial|substantial|full|none.
+  /conceal <level> [for <player>]  Declare concealment. Level: light|medium|heavy|none.
+  /status [<player>]       Show a participant's cover, conceal, dodge, and Defense.
 
-Cross-player /join and /leave require canEdit (builder+).
+Cross-player /join, /leave, /cover, /conceal require canEdit (builder+).
 
 Examples:
-  +combat               Show the current encounter status.
-  +combat/start         Open a new encounter.
-  +combat/join          Add yourself to the initiative order.
-  +combat/begin         Roll initiative and announce the order.
-  +combat/order         Display the initiative table.
-  +combat/next          Advance the turn.
-  +combat/ambush Marcus Try to ambush Marcus.
-  +combat/end           Close the encounter.`,
+  +combat                   Show the current encounter status.
+  +combat/start             Open a new encounter.
+  +combat/join              Add yourself to the initiative order.
+  +combat/begin             Roll initiative and announce the order.
+  +combat/order             Display the initiative table.
+  +combat/next              Advance the turn.
+  +combat/ambush Marcus     Try to ambush Marcus.
+  +combat/cover partial     Take partial cover (-1 to attackers).
+  +combat/conceal heavy     Hide in heavy concealment (-3 to attackers).
+  +combat/status Marcus     Inspect Marcus's combat state.
+  +combat/end               Close the encounter.`,
   exec: combatExec,
 });
 
 addCmd({
   name: "+attack",
-  pattern: /^\+attack\s*(.*)/i,
+  pattern: /^\+attack(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
   help: `+attack <target>[/<switches>]  -- Perform a combat attack in an active encounter.
@@ -461,6 +558,7 @@ Switches (stackable with /):
   /pull[=<max>]                    Pulling blow; cap damage at <max>.
   /head /arm /leg /hand /eye /heart /torso  Specified target location.
   /burst-short /burst-med /burst-long       Autofire bonuses.
+  /suppress                        Suppressive burst-long; no damage, pins others.
   /into-melee[=<n>]                -2 per bystander to avoid.
   /target-prone                    Target is prone (-2 ranged, +2 melee).
   /target-surprised                Target is surprised (no Defense).
@@ -505,4 +603,161 @@ Examples:
   +grapple/break-free
   +grapple/restrain`,
   exec: grappleExec,
+});
+
+addCmd({
+  name: "+throw",
+  pattern: /^\+throw(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+throw <item-key> [at <target>]  -- Throw a grenade (AoE) or aerodynamic weapon (single target).
+
+Switches:
+  /fratricide        Include the thrower in the blast (debug / cinematic).
+  /willpower (/wp)   Spend 1 Willpower for +3 dice.
+  /into-melee[=<n>]  -n dice to avoid hitting bystanders.
+
+Grenades (blast > 0) damage every encounter participant. Net successes
+above each target's Stamina deal full force damage (lethal); equal
+successes deal half force (round down); below evades the blast.
+
+Tilts: stun grenades inflict Stunned; smoke inflicts Blinded; frag /
+molotov inflict Knocked-Down when damage >= target Size.
+
+Aerodynamic weapons (knife / shuriken) require 'at <target>' and
+resolve like a normal ranged attack with no range penalty.
+
+Requires an active encounter (+combat/begin). Must be your turn.
+
+Examples:
+  +throw grenade-frag-standard      Throw a frag grenade at the room.
+  +throw grenade-stun               Flashbang every participant.
+  +throw knife at Marcus            Throw a knife at Marcus.
+  +throw/fratricide grenade-molotov Include yourself in the blast.`,
+  exec: throwExec,
+});
+
+addCmd({
+  name: "+npc",
+  pattern: /^\+npc(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+npc [/switch] [<args>]  -- Spawn and manage non-player antagonists.
+
+Switches:
+  /list                              Show all NPCs in the current room (default).
+  /build <name>=<archetype>[/<tier>] Spawn an NPC with full stat block (staff).
+  /create <name>=<archetype>         Alias for /build.
+  /show <name-or-id>                 Display the full stat block.
+  /powers                            List the Dread Powers / Numina catalog.
+  /addpower <npc>=<key>              Attach a dread power to an NPC (staff).
+  /rmpower <npc>=<key>               Detach a dread power (staff).
+  /destroy <name-or-id>              Remove an NPC (staff only).
+
+Archetypes: thug, cultist, soldier, beast, lieutenant, boss, hunter,
+professional, occultist, ghost, spirit, mastermind.
+
+Tiers: minor (mook), major (named antagonist), storyteller (PC-equivalent).
+Without /<tier> the archetype's default tier is used.
+
+NPCs are real game objects flagged 'npc' with a CoFD sheet at state.cofd
+plus a directory record in cofd.npcs. They join initiative and accept
++attack like players. Cross-player edits require canEdit (builder+);
+/build, /addpower, /rmpower, and /destroy require staff (admin or builder).
+
+Examples:
+  +npc                              List NPCs in the room.
+  +npc/build Goon=thug              Spawn a Thug (minor tier).
+  +npc/build Karl=hunter/storyteller Spawn a storyteller-tier Hunter.
+  +npc/show Goon                    Show Goon's stat block.
+  +npc/powers                       List Dread Powers / Numina.
+  +npc/addpower Karl=mortal-mask    Attach Mortal Mask.
+  +npc/destroy Goon                 Remove the NPC by name.`,
+  exec: npcExec,
+});
+
+addCmd({
+  name: "+aid",
+  pattern: /^\+aid(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+aid <target>  -- Render first aid (Dexterity + Medicine).
+
+Each success converts 1 lethal box on the patient to bashing. If no
+lethal remains, successes clear bashing instead. Aggravated damage
+cannot be treated by first aid. Exceptional success (5+) also clears
+one bashing automatically. Dramatic failure inflicts 1 lethal on the
+patient. Once per scene per patient.
+
+Switches:
+  /reset <player>   ST: clear the patient's aid-lock for the next scene.
+
+Examples:
+  +aid Marcus           Treat Marcus's wounds.
+  +aid                  Self-aid (must have damage to treat).
+  +aid/reset Marcus     Staff: clear Marcus's once-per-scene lock.`,
+  exec: aidExec,
+});
+
+addCmd({
+  name: "+integrity",
+  pattern: /^\+integrity(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+integrity [<player>]  -- View Integrity, trigger a Breaking Point, or adjust the track.
+
+Switches:
+  /break <reason> [+/-N]                    Self-trigger a Breaking Point.
+  /break <player>=<reason> [+/-N]           ST-initiated for another player.
+  /set <0-10> [for <player>]                ST: set Integrity rating directly.
+
+Pool is Resolve + Composure + Integrity-rating mod + optional situational
+modifier (capped +/-5 per RAW p.74). Outcomes:
+  Dramatic failure: -1 Integrity, Broken/Fugue/Madness Condition, +1 Beat.
+  Failure         : -1 Integrity, Shaken/Guilty Condition.
+  Success         : no loss, Guilty/Shaken/Spooked Condition.
+  Exceptional     : no loss, Steadfast/Inspired Condition, +1 Willpower, +1 Beat.
+
+Cross-player /break and /set require canEdit (builder+).
+
+Examples:
+  +integrity                          View your Integrity track.
+  +integrity Marcus                   View Marcus's Integrity.
+  +integrity/break Watched a murder -3   Self-trigger with -3 situational mod.
+  +integrity/break Marcus=Killed in self-defense -4  ST roll for Marcus.
+  +integrity/set 5 for Marcus         Staff: set Marcus to Integrity 5.`,
+  exec: integrityExec,
+});
+
+addCmd({
+  name: "+social",
+  pattern: /^\+social(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+social [/switch] [<args>]  -- Chronicles of Darkness Social Maneuvering (Core p.81-83).
+
+Switches:
+  /start <target>=<goal>          Open a maneuver with a stated goal.
+  /impression <level> [for <t>]   Set impression (hostile|average|good|excellent|perfect). ST/canEdit.
+  /door [<reason>] [for <t>]      Roll Manipulation+Persuasion vs Composure. Opens one door (two on exceptional).
+  /soft <kind>=<text> [for <t>]   Soft leverage: aspiration removes a door; vice/gift bumps impression.
+  /hard [severe] <text> [for <t>] Hard leverage: threats/blackmail. Removes 1 door (2 if severe); worsens impression.
+  /force [for <t>]                Force the doors: one-shot roll vs remaining-doors penalty. All-or-nothing.
+  /status [<target>]              Show the maneuver panel.
+  /list                           List all your active maneuvers.
+  /end [for <t>]                  Abandon the maneuver. Opened doors close.
+
+Doors base = min(Resolve, Composure) of the subject. Hostile impression
+cannot roll until improved. Cumulative -1 penalty per failed door roll.
+Dramatic Failure ends the maneuver and grants subject immunity.
+
+Examples:
+  +social/start Marcus=Loan me the grimoire
+  +social/impression good for Marcus
+  +social/soft aspiration=Help him achieve academic glory
+  +social/door Pitch the offer
+  +social/hard severe Threaten him at gunpoint
+  +social/force
+  +social/end`,
+  exec: socialExec,
 });

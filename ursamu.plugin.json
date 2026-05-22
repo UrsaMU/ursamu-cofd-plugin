@@ -7,6 +7,8 @@
   "license": "MIT",
   "main": "index.ts",
   "dependencies": [
-    { "name": "help", "version": ">=1.0.0" }
+    { "name": "help", "version": ">=1.0.0" },
+    { "name": "jobs", "version": ">=1.4.0" },
+    { "name": "mail", "version": ">=2.0.0" }
   ]
 }

@@ -12,7 +12,10 @@ export async function routeHandler(req: Request, userId: string | null): Promise
   const method = req.method;
 
   if (method === "GET") {
-    return Response.json({ ok: true, plugin: "cofd" });
+    // Confirm the route is live without disclosing the plugin identifier.
+    // The caller already knows the path they hit; echoing the plugin name
+    // only helps enumeration.
+    return Response.json({ ok: true });
   }
 
   return Response.json({ error: "Not found" }, { status: 404 });

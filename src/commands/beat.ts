@@ -10,6 +10,7 @@ import {
   refreshAdvantages,
   type CofdSheet,
 } from "../stats/index.ts";
+import { sendCofdMail } from "../integrations/mail.ts";
 
 /** Parse `/sw1/sw2,sw3` switch tail into a lowercase token set. */
 function parseSwitchTokens(raw: string): Set<string> {
@@ -119,4 +120,22 @@ export async function beatExec(u: IUrsamuSDK) {
   }
 
   u.send(`  ${poolLine(updated)}`);
+
+  if (action === "add" && !sameTarget) {
+    const staffName = u.util.displayName(u.me, u.me);
+    const track = arcane ? "Arcane Beat" : "Beat";
+    const xpGained = afterXp - beforeXp;
+    const xpLabel = arcane ? "Arcane Experience" : "Experience";
+    const bodyLines = [
+      `${staffName} awarded you 1 ${track}.`,
+    ];
+    if (reason) bodyLines.push(`Reason: ${reason}`);
+    if (xpGained > 0) bodyLines.push(`That rolled over into +${xpGained} ${xpLabel}.`);
+    bodyLines.push(``, `Use +xp to view your pools or +xp/spend to advance traits.`);
+    await sendCofdMail({
+      to: target.id,
+      subject: `${track} awarded${reason ? `: ${reason}` : ""}`,
+      body: bodyLines.join("\n"),
+    });
+  }
 }

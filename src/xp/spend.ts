@@ -48,7 +48,7 @@ function currentDots(sheet: CofdSheet, key: string, category: string): number {
 
 /**
  * Resolves an XP purchase: raise `traitName` to `targetDots` if the character
- * can afford it. Pure — returns a new sheet on success. On failure, returns
+ * can afford it. Pure -- returns a new sheet on success. On failure, returns
  * `{ error }`.
  *
  * Cumulative pricing rule: each intermediate dot is charged at its own
@@ -83,7 +83,7 @@ export function spendXp(
       };
     }
     // Flat-cost paths (currently just specialty) are not actually wired to
-    // setTrait here — callers that need flat-cost spending should run the
+    // setTrait here -- callers that need flat-cost spending should run the
     // domain-specific command (e.g. +sheet/set specialty/...) and then
     // settle the XP separately. Return an error to keep the API honest.
     return {
@@ -111,7 +111,7 @@ export function spendXp(
   }
 
   // Power Stat / Morality / Willpower are not always settable via setTrait()
-  // by the trait *name* alone — but in all three cases setTrait does support
+  // by the trait *name* alone -- but in all three cases setTrait does support
   // direct writes to the canonical name (or alias). For power-stat we pass
   // the template's canonical alias so setTrait routes the write correctly.
   let writeKey = key;

@@ -3,15 +3,50 @@
 //   ROLL>> Marcus rolls strength+brawl  5d (3 7 8 9 10) -> 2 successes (Success)
 //
 // Variants:
-//   /wp /rote /9again /8again — appear in the "rolls" verb prefix
-//   chance die                 — shows "chance" instead of "Nd"
-//   rote rerolls               — appended as "rote(...)" after the main dice
-//   willpower spend            — "rolls/wp" prefix
+//   /wp /rote /9again /8again -- appear in the "rolls" verb prefix
+//   chance die                 -- shows "chance" instead of "Nd"
+//   rote rerolls               -- appended as "rote(...)" after the main dice
+//   willpower spend            -- "rolls/wp" prefix
 
 import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
 import { equippedWeaponEntry } from "../equipment/index.ts";
+
+/** Short forms used for compact broadcast lines (under 78 cols). */
+const COMPACT_ABBREV: Record<string, string> = {
+  strength: "Str", dexterity: "Dex", stamina: "Sta",
+  intelligence: "Int", wits: "Wit", resolve: "Res",
+  presence: "Pre", manipulation: "Man", composure: "Com",
+  willpower: "WP",
+};
+
+/**
+ * Build a compact roll expression for the broadcast line. Drops the per-trait
+ * `(N)` annotations, replaces canonical attribute names with their three-letter
+ * short forms, and collapses any equipped-weapon term to a bare "wpn" token so
+ * the broadcast stays under 78 columns even with long weapon names.
+ */
+export function compactRollExpr(
+  terms: string[],
+  opts: { spentWp: boolean; useWeapon: boolean },
+): string {
+  const out: string[] = [];
+  for (const raw of terms) {
+    // Strip trailing "(...)" annotations the parser appends.
+    const bare = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const key = bare.toLowerCase();
+    if (COMPACT_ABBREV[key]) {
+      out.push(COMPACT_ABBREV[key]);
+    } else {
+      // Title-case lowercase trait names for friendly display.
+      out.push(bare.replace(/\b([a-z])/g, (_m, c) => c.toUpperCase()));
+    }
+  }
+  if (opts.spentWp) out.push("WP");
+  if (opts.useWeapon) out.push("wpn");
+  return out.join("+");
+}
 
 export async function rollExec(u: IUrsamuSDK) {
   const swRaw = (u.cmd.args[0] ?? "").toLowerCase().trim();
@@ -75,7 +110,7 @@ export async function rollExec(u: IUrsamuSDK) {
 
   // /weapon: add equipped weapon damage as bonus successes on a hit (>=1
   // success). Per CoFD core, weapon damage is "bonus successes added to a
-  // successful attack" — no hit, no bonus. Chance-die successes count too.
+  // successful attack" -- no hit, no bonus. Chance-die successes count too.
   let weaponBonus = 0;
   let weaponName: string | null = null;
   if (useWeapon) {
@@ -94,11 +129,12 @@ export async function rollExec(u: IUrsamuSDK) {
     weaponName = w.name;
   }
 
-  // Build the switch-suffix on "rolls" — e.g. "rolls/wp/rote".
+  // Build the switch-suffix on "rolls" -- e.g. "rolls/rote/9again". The
+  // /wp and /weapon switches are intentionally omitted here because they
+  // already appear as the bare "WP" / "wpn" tokens in the compact roll
+  // expression, and duplicating them would push the broadcast past 78 cols.
   const verbSwitches: string[] = [];
-  if (spentWp) verbSwitches.push("wp");
   if (result.rote && !result.isChanceDie) verbSwitches.push("rote");
-  if (useWeapon) verbSwitches.push("weapon");
   if (!result.isChanceDie && result.again !== 10) verbSwitches.push(`${result.again}again`);
   const verb = verbSwitches.length ? `rolls/${verbSwitches.join("/")}` : "rolls";
 
@@ -129,24 +165,24 @@ export async function rollExec(u: IUrsamuSDK) {
 
   const name = u.util.displayName(u.me, u.me);
 
-  // Verbose expression: each trait shows its value, e.g. "Strength(3)+Brawl(2)".
-  // Title-case the parser's lowercase trait names for a friendlier display.
-  const titled = parsed.terms.map((t) => t.replace(/\b([a-z])/g, (_m, c) => c.toUpperCase()));
-  const weaponSuffix = weaponName && weaponBonus > 0
-    ? ` + ${weaponName}(+${weaponBonus})`
-    : weaponName
-    ? ` + ${weaponName}(miss)`
-    : "";
-  const verboseExpr = titled.join(" + ") + (spentWp ? " + Willpower(+3)" : "") + weaponSuffix;
-  const bareExpr = expr + (spentWp ? " +wp" : "") + (useWeapon ? " +weapon" : "");
+  // weaponName / weaponBonus are computed earlier for the damage math; they
+  // do not appear in the broadcast line because long weapon names blew past
+  // the 78-col MUSH window. The "wpn" token in the compact expression is the
+  // visible signal that a weapon bonus was applied.
+  void weaponName;
+  void weaponBonus;
+  const compactExpr = compactRollExpr(parsed.terms, { spentWp, useWeapon });
+  const successWord = result.successes === 1 ? "success" : "successes";
 
   const buildLine = (exprStr: string) =>
-    `%ch%ccROLL>>%cn ${name} ${verb} %ch${exprStr}%cn  ` +
-    `${diceBlock}${roteBlock} -> %ch%cy${result.successes}%cn successes ` +
+    `%ch%ccROLL>>%cn ${name} ${verb} %ch${exprStr}%cn ` +
+    `${diceBlock}${roteBlock} -> %ch%cy${result.successes}%cn ${successWord} ` +
     `(${outcomeColor}${outcomeLabel}%cn)`;
 
-  const verboseLine = buildLine(verboseExpr);
-  const bareLine    = buildLine(bareExpr);
+  // Both lines use the compact expression so the broadcast stays under 78
+  // chars even with weapon bonuses.
+  const verboseLine = buildLine(compactExpr);
+  const bareLine    = buildLine(compactExpr);
 
   // The roller and anyone who can edit the roller (STs, builders) see the
   // verbose form with trait values. Everyone else in the room sees the
@@ -168,7 +204,7 @@ export async function rollExec(u: IUrsamuSDK) {
     try {
       if (await u.canEdit(observer, u.me)) line = verboseLine;
     } catch {
-      // canEdit can fail in test/mock environments — default to bare.
+      // canEdit can fail in test/mock environments -- default to bare.
     }
     u.send(line, observer.id);
   }
