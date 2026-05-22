@@ -1,10 +1,25 @@
 // String padding helpers used by sheet/chargen renderers.
 
-export function ljust(s: string, w: number): string {
-  return s.padEnd(w);
+export function ljust(s: string | undefined | null, w: number): string {
+  return String(s ?? "").padEnd(w);
 }
 
+/** Truncate to w columns, appending ".." when the source was longer. */
+export function trunc(s: string | undefined | null, w: number): string {
+  const v = String(s ?? "");
+  if (v.length <= w) return v;
+  if (w <= 2) return v.slice(0, w);
+  return v.slice(0, w - 2) + "..";
+}
+
+/** Truncate then left-pad to exactly w columns. */
+export function fit(s: string | undefined | null, w: number): string {
+  return trunc(s, w).padEnd(w);
+}
+
+
 export function center(s: string, w: number): string {
+  s = String(s ?? "");
   if (s.length >= w) return s;
   const left = Math.floor((w - s.length) / 2);
   return " ".repeat(left) + s + " ".repeat(w - s.length - left);
