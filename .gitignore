@@ -3,3 +3,5 @@ node_modules/
 .deno/
 deno.lock.bak
 .ursamu-stage
+.claude/
+data/
