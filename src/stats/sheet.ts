@@ -53,8 +53,8 @@ export interface EquipmentState {
 /**
  * Touchstones anchor a character to their morality track.
  *
- * - `mask`  : Vampire-only — Daydream / Public Persona anchor.
- * - `dirge` : Vampire-only — Nightmare / Private Truth anchor.
+ * - `mask`  : Vampire-only -- Daydream / Public Persona anchor.
+ * - `dirge` : Vampire-only -- Nightmare / Private Truth anchor.
  * - `list`  : General-purpose touchstones for non-vampire templates.
  */
 export interface Touchstones {
@@ -71,6 +71,12 @@ export interface CofdSheet {
   attributes: Record<CofdAttribute, number>;
   skills: Record<CofdSkill, number>;
   specialties: Record<string, string[]>;
+  /**
+   * Optional per-specialty descriptions, keyed by `skill -> name -> description`.
+   * Stored separately from `specialties` so the legacy `Record<string, string[]>`
+   * shape stays untouched and old sheets read cleanly. Missing entries are "".
+   */
+  specialtyDescriptions?: Record<string, Record<string, string>>;
   merits: Record<string, number>;       // e.g. { giant: 4, "iron stomach": 2 }
   moralityValue: number;       // e.g. Integrity, Humanity, Clarity, Wisdom
   powerStatValue: number;      // e.g. Blood Potency, Wyrd, Gnosis
@@ -89,13 +95,13 @@ export interface CofdSheet {
   // section renderers and subsystem commands fill them in over time.
   // ---------------------------------------------------------------------------
 
-  /** Health track (M2 — Health/Damage). Empty struct if uninitialized. */
+  /** Health track (M2 -- Health/Damage). Empty struct if uninitialized. */
   health?: HealthTrack;
-  /** Active Conditions by catalog key (M5 — Conditions/Aspirations). */
+  /** Active Conditions by catalog key (M5 -- Conditions/Aspirations). */
   conditions?: ConditionInstance[];
   /** Active Aspirations, capped at 3 in normal play (M5). */
   aspirations?: Aspiration[];
-  /** Beat counter. Converts at 5 → 1 Experience (M4 — Beats/XP). */
+  /** Beat counter. Converts at 5 -> 1 Experience (M4 -- Beats/XP). */
   beats?: number;
   /** Banked standard Experience points (M4). */
   experience?: number;
@@ -103,7 +109,7 @@ export interface CofdSheet {
   arcaneBeats?: number;
   /** Banked Arcane Experience points (M4). */
   arcaneExperience?: number;
-  /** Touchstones (M6 — Vampire Mask/Dirge; also general-use). */
+  /** Touchstones (M6 -- Vampire Mask/Dirge; also general-use). */
   touchstones?: Touchstones;
   /**
    * Temporary stat overrides keyed by stat name (lowercase). Used to render
@@ -169,6 +175,12 @@ export function migrateSheet(sheet: any): CofdSheet {
     ? sheet.tempStats
     : {};
   const tilts: TiltInstance[] = Array.isArray(sheet.tilts) ? sheet.tilts : [];
+  // Specialty descriptions: optional sibling map, never overwrites the legacy
+  // string[] shape. Missing entries render as no description.
+  const specialtyDescriptions: Record<string, Record<string, string>> =
+    sheet.specialtyDescriptions && typeof sheet.specialtyDescriptions === "object"
+      ? sheet.specialtyDescriptions
+      : {};
   // Migration: any pre-DBO embedded items[] on the sheet are dropped. The
   // gear refactor moves items to a dedicated DBO collection; pre-existing
   // sheets with embedded items would need a separate migrator (not in
@@ -205,6 +217,7 @@ export function migrateSheet(sheet: any): CofdSheet {
     tempStats,
     tilts,
     equipment,
+    specialtyDescriptions,
   };
 }
 
@@ -252,6 +265,7 @@ export function defaultSheet(): CofdSheet {
     tempStats: {},
     tilts: [],
     equipment: emptyEquipment(),
+    specialtyDescriptions: {},
   };
 }
 
@@ -277,7 +291,7 @@ export function refreshAdvantages(sheet: CofdSheet): CofdSheet {
   sheet.energyCurrent = Math.min(sheet.energyCurrent, maxEnergy);
 
   // Health track scaffolding: ensure the struct exists for downstream M2 work.
-  // We do not apply damage semantics here — that's M2's job. We only guarantee
+  // We do not apply damage semantics here -- that's M2's job. We only guarantee
   // the field is present and, if set, clamp the total to stamina+size.
   if (!sheet.health) {
     sheet.health = emptyHealth();
@@ -285,7 +299,7 @@ export function refreshAdvantages(sheet: CofdSheet): CofdSheet {
     const maxHealth = (sheet.attributes.stamina || 1) + sheet.advantages.size;
     const total = sheet.health.bashing + sheet.health.lethal + sheet.health.aggravated;
     if (total > maxHealth) {
-      // Trim from the least-severe bucket first (bashing → lethal → aggravated).
+      // Trim from the least-severe bucket first (bashing -> lethal -> aggravated).
       let overflow = total - maxHealth;
       const trim = (n: number) => {
         const take = Math.min(n, overflow);

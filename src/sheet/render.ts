@@ -3,7 +3,7 @@
 // `formatSheet` is a thin orchestrator that walks a list of section renderers
 // in order. Future subsystems (Health, Conditions, Beats, Touchstones, etc.)
 // add their own section files under `./sections/` and append themselves to
-// `defaultSections` — no need to touch this file.
+// `defaultSections` -- no need to touch this file.
 
 import { footer } from "@ursamu/ursamu";
 import { migrateSheet, type CofdSheet } from "../stats/sheet.ts";

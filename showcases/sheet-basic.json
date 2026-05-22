@@ -1,6 +1,6 @@
 {
   "key": "sheet-basic",
-  "title": "+sheet — character sheet viewer",
+  "title": "+sheet -- character sheet viewer",
   "description": "Demonstrates viewing a Chronicles of Darkness character sheet for a Mortal with filled-in attributes, skills, and advantages.",
   "vars": { "player": "Katya" },
   "setup": {
@@ -47,9 +47,9 @@
     { "cmd": "+sheet Katya", "label": "view sheet by name" },
     { "expect": "Street Detective" },
 
-    { "sub": "Missing Sheet" },
-    { "note": "If a player hasn't completed character generation yet, a helpful message is shown." },
-    { "cmd": "+sheet Admin", "label": "admin has no sheet yet" },
-    { "expect": "does not have an approved character sheet" }
+    { "sub": "Fallback to Self" },
+    { "note": "If the named player can't be resolved, +sheet falls back to showing your own sheet." },
+    { "cmd": "+sheet Ghostly", "label": "unknown name -- shows Katya" },
+    { "expect": "Katya" }
   ]
 }

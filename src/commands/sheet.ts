@@ -1,6 +1,6 @@
 // +sheet and +sheet/set command implementations.
 
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import type { IDBObj, IUrsamuSDK } from "@ursamu/ursamu";
 import {
   defaultSheet,
   setTrait,
@@ -9,6 +9,16 @@ import {
 } from "../stats/index.ts";
 import { COFD_SKILLS } from "../dictionary/index.ts";
 import { formatSheet } from "../sheet/index.ts";
+
+const SPECIALTY_NAME_MAX = 40;
+const SPECIALTY_DESC_MAX = 80;
+
+/** Staff gate: admin / builder / wizard flag on the actor. */
+function isStaff(actor: IDBObj): boolean {
+  const f = actor.flags as Set<string> | undefined;
+  if (!f) return false;
+  return f.has?.("admin") || f.has?.("builder") || f.has?.("wizard");
+}
 
 export async function sheetExec(u: IUrsamuSDK) {
   const targetName = (u.cmd.args[0] ?? "").trim();
@@ -97,7 +107,7 @@ export async function sheetSetExec(u: IUrsamuSDK) {
     return;
   }
 
-  // Specialty handler
+  // Specialty handler -- supports "<name>" or "<name>: <description>".
   if (trait.toLowerCase().startsWith("specialty/")) {
     const skillName = trait.slice("specialty/".length).trim().toLowerCase();
     if (!(COFD_SKILLS as readonly string[]).includes(skillName)) {
@@ -105,7 +115,7 @@ export async function sheetSetExec(u: IUrsamuSDK) {
       return;
     }
 
-    const specValue = rhs.trim();
+    const raw = rhs.trim();
     const sheet = (target.state?.cofd as CofdSheet) || defaultSheet();
     if (!sheet.specialties) {
       sheet.specialties = {};
@@ -113,24 +123,75 @@ export async function sheetSetExec(u: IUrsamuSDK) {
     if (!sheet.specialties[skillName]) {
       sheet.specialties[skillName] = [];
     }
-
-    if (specValue.length > 40) {
-      u.send(`Specialty name too long (max 40 characters; got ${specValue.length}).`);
-      return;
+    if (!sheet.specialtyDescriptions) {
+      sheet.specialtyDescriptions = {};
     }
-    if (!specValue) {
+    if (!sheet.specialtyDescriptions[skillName]) {
+      sheet.specialtyDescriptions[skillName] = {};
+    }
+
+    if (!raw) {
       // Empty value resets the skill's specialty list (matches the trait
       // reset convention: `+sheet/set athletics=` -> reset Athletics).
       sheet.specialties[skillName] = [];
+      sheet.specialtyDescriptions[skillName] = {};
       u.send(`Cleared all specialties for skill '${skillName}' on ${target.name}'s sheet.`);
-    } else {
-      if (!sheet.specialties[skillName].includes(specValue)) {
-        sheet.specialties[skillName].push(specValue);
-      }
-      u.send(`Added specialty '${specValue}' to skill '${skillName}' on ${target.name}'s sheet.`);
+      await u.db.modify(target.id, "$set", { "data.cofd": sheet });
+      return;
     }
 
+    // Split on first ": " -- name on the left, description on the right.
+    let specName = raw;
+    let specDesc = "";
+    const sepIdx = raw.indexOf(": ");
+    if (sepIdx >= 0) {
+      specName = raw.slice(0, sepIdx).trim();
+      specDesc = raw.slice(sepIdx + 2).trim();
+    }
+
+    if (!specName) {
+      u.send("Specialty name is required (use 'name' or 'name: description').");
+      return;
+    }
+    if (specName.length > SPECIALTY_NAME_MAX) {
+      u.send(
+        `Specialty name too long (max ${SPECIALTY_NAME_MAX} characters; got ${specName.length}).`,
+      );
+      return;
+    }
+    if (specDesc.length > SPECIALTY_DESC_MAX) {
+      u.send(
+        `Specialty description too long (max ${SPECIALTY_DESC_MAX} characters; got ${specDesc.length}).`,
+      );
+      return;
+    }
+
+    const list = sheet.specialties[skillName];
+    const descs = sheet.specialtyDescriptions[skillName];
+    if (!list.includes(specName)) {
+      list.push(specName);
+    }
+    if (sepIdx >= 0) {
+      // Explicit description provided: set or replace (empty string clears).
+      if (specDesc) descs[specName] = specDesc;
+      else delete descs[specName];
+    }
+    // Pure rename (no separator) preserves any existing description as-is.
+
+    const descPart = descs[specName] ? ` (${descs[specName]})` : "";
+    u.send(
+      `Added specialty '${specName}'${descPart} to skill '${skillName}' on ${target.name}'s sheet.`,
+    );
+
     await u.db.modify(target.id, "$set", { "data.cofd": sheet });
+    return;
+  }
+
+  // Size: admin/builder gate (CoFD core: Size is set during chargen by the
+  // Build/Frame merit, otherwise fixed at 5 for humans). Outside chargen
+  // only staff may edit it.
+  if (trait.toLowerCase() === "size" && !isStaff(u.me)) {
+    u.send("Permission denied. Size can only be changed by staff (admin or builder).");
     return;
   }
 
@@ -145,4 +206,136 @@ export async function sheetSetExec(u: IUrsamuSDK) {
   } catch (err: any) {
     u.send(`Error: ${err.message}`);
   }
+}
+
+/**
+ * Resolve the WP-regen target. Self is always allowed; cross-player requires
+ * canEdit (builder+) per the project's standard cross-edit gate.
+ */
+async function resolveRegenTarget(
+  u: IUrsamuSDK,
+  arg: string,
+): Promise<IDBObj | null> {
+  const name = u.util.stripSubs(arg ?? "").trim();
+  // Allow "name = reason" or "name: reason" shorthand -- caller pre-splits.
+  if (!name) return u.me;
+  const t = await u.util.target(u.me, name);
+  if (!t) {
+    u.send(`Player '${name}' not found.`);
+    return null;
+  }
+  if (t.id !== u.me.id && !(await u.canEdit(u.me, t))) {
+    u.send("Permission denied. You cannot modify that player's character sheet.");
+    return null;
+  }
+  return t;
+}
+
+/** Splits a `<target> = <reason>` argument; reason may also use `:` separator. */
+function splitTargetReason(raw: string): { who: string; reason: string } {
+  const s = raw.trim();
+  // Prefer "=" then ": " as separators so the WP commands can both name a
+  // target and capture a justification in one argument.
+  let idx = s.indexOf("=");
+  if (idx < 0) idx = s.indexOf(": ");
+  if (idx < 0) return { who: s, reason: "" };
+  const sepLen = s[idx] === "=" ? 1 : 2;
+  return {
+    who: s.slice(0, idx).trim(),
+    reason: s.slice(idx + sepLen).trim(),
+  };
+}
+
+/**
+ * +sheet/virtue [<player>] [= <reason>]
+ * Restores full Willpower when the character acts in line with their Virtue
+ * during a meaningful scene. Self use is allowed; cross-player requires
+ * canEdit (builder+ / staff).
+ */
+export async function sheetVirtueExec(u: IUrsamuSDK) {
+  const raw = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
+  const { who, reason } = splitTargetReason(raw);
+  const target = await resolveRegenTarget(u, who);
+  if (!target) return;
+
+  const sheet = target.state?.cofd as CofdSheet | undefined;
+  if (!sheet) {
+    u.send("That player does not have an approved character sheet yet.");
+    return;
+  }
+  const max = sheet.advantages.willpowerMax;
+  if (sheet.advantages.willpowerCurrent >= max) {
+    u.send(`${target.name} already has full Willpower (${max}/${max}).`);
+    return;
+  }
+  const updated: CofdSheet = {
+    ...sheet,
+    advantages: { ...sheet.advantages, willpowerCurrent: max },
+  };
+  await u.db.modify(target.id, "$set", { "data.cofd": updated });
+  const tail = reason ? ` -- ${reason}` : "";
+  u.send(`Virtue triggered: ${target.name}'s Willpower restored to ${max}/${max}${tail}.`);
+}
+
+/**
+ * +sheet/vice [<player>] [= <reason>]
+ * Indulging the character's Vice restores 1 Willpower. The "with a cost"
+ * portion of the rule (a Condition or scene complication) is narrative and
+ * handled out-of-band; this command only moves the WP track.
+ */
+export async function sheetViceExec(u: IUrsamuSDK) {
+  const raw = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
+  const { who, reason } = splitTargetReason(raw);
+  const target = await resolveRegenTarget(u, who);
+  if (!target) return;
+
+  const sheet = target.state?.cofd as CofdSheet | undefined;
+  if (!sheet) {
+    u.send("That player does not have an approved character sheet yet.");
+    return;
+  }
+  const max = sheet.advantages.willpowerMax;
+  const cur = sheet.advantages.willpowerCurrent;
+  if (cur >= max) {
+    u.send(`${target.name} already has full Willpower (${max}/${max}).`);
+    return;
+  }
+  const next = Math.min(cur + 1, max);
+  const updated: CofdSheet = {
+    ...sheet,
+    advantages: { ...sheet.advantages, willpowerCurrent: next },
+  };
+  await u.db.modify(target.id, "$set", { "data.cofd": updated });
+  const tail = reason ? ` -- ${reason}` : "";
+  u.send(`Vice indulged: ${target.name}'s Willpower is now ${next}/${max}${tail}.`);
+}
+
+/**
+ * +sheet/rest [<player>] [= <reason>]
+ * A full night's rest restores all Willpower. Same permission gate as the
+ * other regen switches.
+ */
+export async function sheetRestExec(u: IUrsamuSDK) {
+  const raw = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
+  const { who, reason } = splitTargetReason(raw);
+  const target = await resolveRegenTarget(u, who);
+  if (!target) return;
+
+  const sheet = target.state?.cofd as CofdSheet | undefined;
+  if (!sheet) {
+    u.send("That player does not have an approved character sheet yet.");
+    return;
+  }
+  const max = sheet.advantages.willpowerMax;
+  if (sheet.advantages.willpowerCurrent >= max) {
+    u.send(`${target.name} already has full Willpower (${max}/${max}).`);
+    return;
+  }
+  const updated: CofdSheet = {
+    ...sheet,
+    advantages: { ...sheet.advantages, willpowerCurrent: max },
+  };
+  await u.db.modify(target.id, "$set", { "data.cofd": updated });
+  const tail = reason ? ` -- ${reason}` : "";
+  u.send(`Full rest: ${target.name}'s Willpower restored to ${max}/${max}${tail}.`);
 }

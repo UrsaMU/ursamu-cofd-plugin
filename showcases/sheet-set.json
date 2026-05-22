@@ -1,6 +1,6 @@
 {
   "key": "sheet-set",
-  "title": "+sheet/set — modify traits and specialties",
+  "title": "+sheet/set -- modify traits and specialties",
   "description": "Demonstrates the +sheet/set command: setting attributes, skills, merits, and specialties on an approved sheet.",
   "vars": { "player": "Katya" },
   "setup": {
@@ -57,12 +57,12 @@
 
     { "sub": "Setting a Merit" },
     { "note": "Merit names are looked up in resources/merits.json. Invalid dot values are rejected." },
-    { "cmd": "+sheet/set contacts=2", "label": "set Contacts merit to 2 dots" },
+    { "cmd": "+sheet/set contacts(police)=2", "label": "set instanced Contacts merit" },
     { "expect": "Set trait" },
 
-    { "sub": "Rejection — Out-of-Range Value" },
-    { "note": "Values outside the allowed range (1-5 for most traits) are rejected with a helpful error." },
-    { "cmd": "+sheet/set Strength=9", "label": "too high — should error" },
-    { "expect": "Error" }
+    { "sub": "Rejection -- Instanced Merit Without Qualifier" },
+    { "note": "Instanced merits (Contacts, Allies, Status) require a qualifier in parentheses." },
+    { "cmd": "+sheet/set contacts=2", "label": "missing qualifier -- should error" },
+    { "expect": "qualifier" }
   ]
 }

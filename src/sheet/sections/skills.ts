@@ -20,9 +20,21 @@ function statCell(ctx: SheetContext, key: string, base: number, cw: number): str
   return formatDottedStatLine(TITLE_CASE(key), base, temp, cw);
 }
 
-function specialtyCell(name: string, cw: number): string {
+function specialtyCell(name: string, description: string, cw: number): string {
   // Indented within the cell. Pad to cw visible chars so neighbor cells align.
-  const text = "    " + name;
+  // Description is shown inline in parens, truncated if it would overflow.
+  let label = name;
+  if (description) {
+    const indent = 4;
+    const room = Math.max(0, cw - indent - name.length - 3); // " ()" = 3 chars
+    if (room > 0) {
+      const trimmed = description.length > room
+        ? description.slice(0, Math.max(1, room - 1)) + "."
+        : description;
+      label = `${name} (${trimmed})`;
+    }
+  }
+  const text = "    " + label;
   return `%cx${ljust(text, cw)}%cn`;
 }
 
@@ -41,7 +53,8 @@ function buildColumn(
   for (const skill of skills) {
     out.push(statCell(ctx, skill, sks[skill] || 0, cw));
     const specs = ctx.sheet.specialties?.[skill] || [];
-    for (const spec of specs) out.push(specialtyCell(spec, cw));
+    const descs = ctx.sheet.specialtyDescriptions?.[skill] || {};
+    for (const spec of specs) out.push(specialtyCell(spec, descs[spec] || "", cw));
   }
   return out;
 }

@@ -7,7 +7,7 @@ import type { SheetContext, SheetSection } from "./types.ts";
 
 /**
  * Render `max` boxes left-to-right. Damage fills in the order: aggravated
- * first, then lethal, then bashing — matching CoFD 2e severity ordering on
+ * first, then lethal, then bashing -- matching CoFD 2e severity ordering on
  * the printed track. (The math layer stores counts of each type; the
  * visualization walks worst-to-least so the heaviest damage appears leftmost.)
  */

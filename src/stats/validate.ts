@@ -4,6 +4,10 @@ import {
   COFD_ATTRIBUTES,
   COFD_SKILLS,
   COFD_MERITS,
+  COFD_VIRTUE_NAMES,
+  COFD_VICE_NAMES,
+  findVice,
+  findVirtue,
   parseMeritRef,
 } from "../dictionary/index.ts";
 import { COFD_TEMPLATES } from "../gamelines/templates.ts";
@@ -96,7 +100,7 @@ export function validateTraitValue(trait: string, valueStr: string, sheet?: Cofd
   const meritDef = COFD_MERITS.find(m => m.key === meritRef.merit);
   if (meritDef) {
     if (meritDef.instanced && !meritRef.qualifier) {
-      throw new Error(`Merit '${meritDef.name}' requires a qualifier — e.g. ${meritDef.key}(spanish).`);
+      throw new Error(`Merit '${meritDef.name}' requires a qualifier -- e.g. ${meritDef.key}(spanish).`);
     }
     if (!meritDef.instanced && meritRef.qualifier) {
       throw new Error(`Merit '${meritDef.name}' does not take a qualifier.`);
@@ -150,14 +154,34 @@ export function validateTraitValue(trait: string, valueStr: string, sheet?: Cofd
   }
 
   if (key === "size") {
-    if (isNaN(valInt) || valInt < 1 || valInt > 20) {
-      throw new Error("Size must be an integer between 1 and 20.");
+    if (isNaN(valInt) || valInt < 1 || valInt > 10) {
+      throw new Error("Size must be an integer between 1 and 10.");
     }
     return valInt;
   }
 
-  if (["concept", "virtue", "vice"].includes(key)) {
+  if (key === "concept") {
     return valueStr.trim();
+  }
+
+  if (key === "virtue") {
+    const match = findVirtue(valueStr);
+    if (!match) {
+      throw new Error(
+        `Invalid Virtue '${valueStr.trim()}'. Valid Virtues: ${COFD_VIRTUE_NAMES.join(", ")}.`,
+      );
+    }
+    return match.name;
+  }
+
+  if (key === "vice") {
+    const match = findVice(valueStr);
+    if (!match) {
+      throw new Error(
+        `Invalid Vice '${valueStr.trim()}'. Valid Vices: ${COFD_VICE_NAMES.join(", ")}.`,
+      );
+    }
+    return match.name;
   }
 
   // Custom Fields check (e.g. Clan, Covenant, Seeming)

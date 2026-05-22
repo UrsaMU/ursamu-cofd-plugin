@@ -84,6 +84,10 @@ export function setTrait(sheet: CofdSheet, trait: string, value: string | number
 
   if (key === "size") {
     sheet.advantages.size = value as number;
+    // Speed (Str+Dex+Size) is recomputed at render time and Health max
+    // (Stamina+Size) is clamped by refreshAdvantages; no persisted derived
+    // fields to mutate here.
+    sheet = refreshAdvantages(sheet);
     return sheet;
   }
 
