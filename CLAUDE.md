@@ -153,17 +153,23 @@ u.send("Message.", target.id);  // optional second arg = recipient socket id
 
 ## Player-inline state pattern
 
+The SDK surfaces stored `data.*` fields as `state.*` on the live object.
+**Reads** use `u.me.state.cofd`; **writes** target `"data.cofd"`. Mixing
+them (writing to `"state.cofd"`) silently fails to persist -- the next
+read re-hydrates from `data.*` and the write is lost.
+
 ```typescript
 // Reading (always default)
 const ps = (u.me.state.cofd ?? {}) as CofdSheet;
 
 // Writing (always spread to preserve other fields)
-await u.db.modify(u.me.id, "$set", { "state.cofd": { ...ps, field: value } });
+await u.db.modify(u.me.id, "$set", { "data.cofd": { ...ps, field: value } });
 ```
 
-Use `state.cofd` for per-player sheet data (the character sheet, chargen
-workspace under `state.cofd_cg`). Use `new DBO("cofd.<collection>")` for
-records with their own lifecycle (combat encounters, scene logs, etc.).
+Use `data.cofd` for the per-player sheet, `data.cofd_cg` for the chargen
+workspace, and `data.cofd_<scoped>` for any other per-player transient
+state. Use `new DBO("cofd.<collection>")` for records with their own
+lifecycle (combat encounters, NPC directory, scene logs, etc.).
 
 ---
 
@@ -249,6 +255,34 @@ Rules:
 - The top-level file lists its sub-topics in a `More:` block above
   `See also:`. The help-plugin's textdir loader scans subdirectories
   recursively, so any nested file is reachable as `help <cmd> <sub>`.
+
+---
+
+## Output layout convention
+
+Two distinct output shapes, picked by intent:
+
+```
+Pages (full character views)  -> header() + body + footer()
+Panels (list/status views)    -> divider("TITLE") + body, no closing rule
+Single broadcasts             -> no layout helpers
+```
+
+- **Pages** are full-screen, "this is the document" views: `+sheet`, `+cg`.
+  They close the frame with `footer()` so the player gets a clear visual
+  end to the document.
+- **Panels** are list or status read-outs that the player consults in
+  passing: `+combat`, `+gear/list`, `+condition`, `+xp`, `+npc/list`,
+  `+tilt`, `+health`, `+aspiration`. They open with `divider("TITLE")` and
+  let the next prompt close them -- no footer.
+- **Single broadcasts** are one-shot lines (a roll result, an error, an
+  ack) and use no layout helpers at all.
+- All three obey the 78-column width. Any hand-rolled rule must match the
+  SDK's 78-char default (`"-".repeat(78)`) -- never 72, never 76. No
+  em-dashes, smart quotes, bullets, or other non-Latin-1 glyphs in titles
+  or rules.
+- Panel titles are ALL-CAPS-WITH-SPACES (e.g., `"C O M B A T"`,
+  `"C O N D I T I O N S"`) to match the existing style.
 
 ---
 
