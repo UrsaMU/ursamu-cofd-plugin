@@ -12,6 +12,10 @@ export interface MeritDefinition {
    * Language (Russian) are two separate purchases.
    */
   instanced?: boolean;
+  /** Book + page provenance, e.g. "Hurt Locker p.42". Optional metadata. */
+  source?: string;
+  /** Sub-category tags for filtering, e.g. ["minor-template:atariya"]. */
+  tags?: string[];
 }
 
 const meritsUrl = new URL("../../resources/merits.json", import.meta.url);

@@ -20,6 +20,23 @@ export function checkPrerequisites(prereqs: string[], sheet: CofdSheet): { valid
   for (const expr of prereqs) {
     const clean = expr.trim().toLowerCase();
 
+    // OR: any branch passing satisfies the whole expression. Each branch is
+    // recursively re-evaluated as a single-element prereq list.
+    if (clean.includes("|")) {
+      const branches = clean.split("|").map((b) => b.trim()).filter(Boolean);
+      let firstReason = "";
+      let anyPass = false;
+      for (const b of branches) {
+        const r = checkPrerequisites([b], sheet);
+        if (r.valid) { anyPass = true; break; }
+        if (!firstReason) firstReason = r.reason ?? "";
+      }
+      if (!anyPass) {
+        return { valid: false, reason: firstReason || `None of: ${branches.join(" | ")}` };
+      }
+      continue;
+    }
+
     // 1. Shorthand template matching e.g. "@vampire"
     if (clean.startsWith("@")) {
       const templateName = clean.slice(1).trim();
@@ -27,6 +44,39 @@ export function checkPrerequisites(prereqs: string[], sheet: CofdSheet): { valid
         return {
           valid: false,
           reason: `Requires template '${templateName}' (Current template: '${sheet.template}')`
+        };
+      }
+      continue;
+    }
+
+    // 2a. Sum prereq: "attr1+attr2>=N" (e.g. Composure+Resolve>=5).
+    const sumMatch = clean.match(/^([a-z ]+)\+([a-z ]+)\s*(>=|>|<=|<|==|=)\s*(\d+)$/);
+    if (sumMatch) {
+      const a = sumMatch[1].trim();
+      const b = sumMatch[2].trim();
+      const op = sumMatch[3];
+      const target = parseInt(sumMatch[4], 10);
+      const readTrait = (k: string): number => {
+        if (COFD_ATTRIBUTES.includes(k)) return sheet.attributes[k] || 1;
+        if (COFD_SKILLS.includes(k)) return sheet.skills[k] || 0;
+        if (k === tmpl.moralityName.toLowerCase()) return sheet.moralityValue;
+        if (k === tmpl.powerStatName.toLowerCase()) return sheet.powerStatValue;
+        return 0;
+      };
+      const sum = readTrait(a) + readTrait(b);
+      let pass = false;
+      switch (op) {
+        case ">=": pass = sum >= target; break;
+        case ">": pass = sum > target; break;
+        case "<=": pass = sum <= target; break;
+        case "<": pass = sum < target; break;
+        case "==": case "=": pass = sum === target; break;
+      }
+      if (!pass) {
+        const title = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+        return {
+          valid: false,
+          reason: `Requires ${title(a)} + ${title(b)} ${op} ${target} (Current value: ${sum})`,
         };
       }
       continue;
