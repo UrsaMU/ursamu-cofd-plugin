@@ -21,10 +21,14 @@ import {
   setParticipantCover,
   setRan,
   setSurrendered,
+  setSurprised,
 } from "../combat/encounter.ts";
 import { computeDefense } from "../combat/pools.ts";
 import { type CofdSheet, defaultSheet } from "../stats/index.ts";
 import type { Encounter } from "../combat/types.ts";
+import { getCoverDurability } from "../combat/types.ts";
+import { advanceTurnSmart } from "../combat/walker.ts";
+import { lookupTilt } from "../subsystems/tilts.ts";
 
 const COVER_LEVELS: Record<string, number> = {
   none: 0,
@@ -121,9 +125,14 @@ async function combatStatus(u: IUrsamuSDK, rest = "") {
     lines.push(`  Initiative:    ${p.initiative}`);
     lines.push(`  Defense:       ${effDef} (base ${baseDef}, applied ${p.appliedDefense})`);
     lines.push(`  Dodging:       ${p.isDodging ? "yes" : "no"}`);
-    lines.push(`  Cover:         ${coverLabel(p.cover)}`);
+    lines.push(`  Cover:         ${coverLabel(getCoverDurability(p))}`);
     lines.push(`  Concealment:   ${concealLabel(p.concealment)}`);
     if (p.isOut) lines.push("  Incapacitated: yes");
+    const tilts = sheet.tilts ?? [];
+    if (tilts.length > 0) {
+      const tiltNames = tilts.map((t) => lookupTilt(t.key)?.name ?? t.key).join(", ");
+      lines.push(`  Tilts:         ${tiltNames}`);
+    }
     u.send(lines.join("\n"));
     return;
   }
@@ -310,7 +319,7 @@ async function combatBegin(u: IUrsamuSDK) {
   u.send(lines.join("\n"));
 }
 
-async function combatNext(u: IUrsamuSDK) {
+async function combatNext(u: IUrsamuSDK, manual = false) {
   const roomId = u.here?.id;
   if (!roomId) { u.send("You are not in a room."); return; }
   const enc = await getEncounterForRoom(roomId);
@@ -318,14 +327,31 @@ async function combatNext(u: IUrsamuSDK) {
     u.send("No active encounter. Use +combat/begin to start the round.");
     return;
   }
-  const updated = await advanceTurn(enc.id);
-  if (!updated) { u.send("Failed to advance turn."); return; }
-  const cur = updated.participants[updated.turnIdx];
-  const msg =
-    `%cyTURN>>%cn Round ${updated.round} -- It is now ${cur.name}'s turn ` +
-    `(Initiative ${cur.initiative}).`;
-  u.send(msg);
-  u.broadcast(msg);
+  // Single-step (legacy) advance when /manual is supplied.
+  if (manual) {
+    const updated = await advanceTurn(enc.id);
+    if (!updated) { u.send("Failed to advance turn."); return; }
+    const cur = updated.participants[updated.turnIdx];
+    const msg =
+      `%cyTURN>>%cn Round ${updated.round} -- It is now ${cur.name}'s turn ` +
+      `(Initiative ${cur.initiative}).`;
+    u.send(msg);
+    u.broadcast(msg);
+    return;
+  }
+  // Default: smart walker -- step one slot then pump AI until a PC turn.
+  const stepped = await advanceTurn(enc.id);
+  if (!stepped) { u.send("Failed to advance turn."); return; }
+  const after = await advanceTurnSmart(enc.id, u);
+  if (!after) return;
+  const cur = after.participants[after.turnIdx];
+  if (cur) {
+    const msg =
+      `%cyTURN>>%cn Round ${after.round} -- It is now ${cur.name}'s turn ` +
+      `(Initiative ${cur.initiative}).`;
+    u.send(msg);
+    u.broadcast(msg);
+  }
 }
 
 async function combatDelay(u: IUrsamuSDK) {
@@ -478,11 +504,11 @@ async function combatAmbush(u: IUrsamuSDK, rest: string) {
   const theirSheet = target.state?.cofd as CofdSheet | undefined;
 
   // Attacker: Dexterity + Stealth
-  const atkDex = mySheet?.attributes?.Dexterity ?? 1;
-  const atkStealth = mySheet?.skills?.Stealth ?? 0;
+  const atkDex = mySheet?.attributes?.dexterity ?? mySheet?.attributes?.Dexterity ?? 1;
+  const atkStealth = mySheet?.skills?.stealth ?? mySheet?.skills?.Stealth ?? 0;
   // Defender: Wits + Composure
-  const defWits = theirSheet?.attributes?.Wits ?? 1;
-  const defComp = theirSheet?.attributes?.Composure ?? 1;
+  const defWits = theirSheet?.attributes?.wits ?? theirSheet?.attributes?.Wits ?? 1;
+  const defComp = theirSheet?.attributes?.composure ?? theirSheet?.attributes?.Composure ?? 1;
 
   const atkPool = atkDex + atkStealth;
   const defPool = defWits + defComp;
@@ -524,9 +550,7 @@ async function combatAmbush(u: IUrsamuSDK, rest: string) {
     );
     // Mark defender as having applied defense so pool effectively exhausted.
     await applyDefense(enc.id, target.id);
-    // Also mark defender out-of-action for first turn via setDodge=false is insufficient;
-    // store in isOut temporarily: a full implementation would track "surprised" state.
-    // For this implementation, we note it in output and leave mechanical enforcement to staff.
+    await setSurprised(enc.id, target.id, true);
   } else if (defSuccesses > atkSuccesses) {
     lines.push(`  Ambush fails! ${defenderName} is aware of the threat.`);
   } else {
@@ -610,15 +634,23 @@ async function combatBreakpin(u: IUrsamuSDK) {
 // ---------------------------------------------------------------------------
 
 export async function combatExec(u: IUrsamuSDK) {
-  const sw = (u.cmd.args[0] ?? "").toLowerCase().trim();
+  const swRaw = (u.cmd.args[0] ?? "").toLowerCase().trim();
   const rest = u.util.stripSubs(u.cmd.args[1] ?? "").trim();
+  // Support stacked switches like /next/manual -> primary=next, extras={manual}.
+  const swParts = swRaw.split("/").filter(Boolean);
+  const sw = swParts[0] ?? "";
+  const swSet = new Set(swParts.slice(1));
 
   switch (sw) {
     case "start":  await combatStart(u);        return;
     case "join":   await combatJoin(u, rest);   return;
     case "leave":  await combatLeave(u, rest);  return;
     case "begin":  await combatBegin(u);        return;
-    case "next":   await combatNext(u);         return;
+    case "next": {
+      const manual = swSet.has("manual") || /\bmanual\b/i.test(rest);
+      await combatNext(u, manual);
+      return;
+    }
     case "delay":
     case "hold":   await combatDelay(u);        return;
     case "act":

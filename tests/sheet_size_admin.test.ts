@@ -1,7 +1,7 @@
 // Tests for +sheet/set size=<n> -- staff-only gate and derived-stat recompute.
 
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { sheetSetExec } from "../src/commands/sheet.ts";
 import {
@@ -40,7 +40,7 @@ describe("+sheet/set size", OPTS, () => {
     });
     await sheetSetExec(u);
     assertEquals(u._dbCalls.length, 1);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.advantages.size, 6);
   });
 
@@ -54,7 +54,7 @@ describe("+sheet/set size", OPTS, () => {
       args: ["size", "4"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.advantages.size, 4);
   });
 
@@ -100,14 +100,14 @@ describe("Size derived-stat recompute", OPTS, () => {
 describe("Size sheet migration", OPTS, () => {
   it("defaults Size to 5 when missing", () => {
     // Hand-craft a partial old-shape sheet
-    const old: any = {
+    const old: Record<string, unknown> = {
       template: "mortal", concept: "", virtue: "", vice: "",
       attributes: { strength: 1, dexterity: 1, stamina: 1, intelligence: 1,
         wits: 1, resolve: 1, presence: 1, manipulation: 1, composure: 1 },
       skills: {}, specialties: {}, merits: {}, customFields: {}, powers: {},
       advantages: { willpowerMax: 2, willpowerCurrent: 2 }, // no size
     };
-    const out = refreshAdvantages(old);
+    const out = refreshAdvantages(old as unknown as CofdSheet);
     assertEquals(out.advantages.size, 5);
   });
 });

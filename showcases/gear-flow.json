@@ -79,6 +79,40 @@
 
     { "sub": "Remove" },
     { "cmd": "+gear/remove 1", "label": "discard kevlar" },
-    { "expect": "Removed" }
+    { "expect": "Removed" },
+
+    { "sub": "Ammo as Real Objects" },
+    { "note": "Magazines are real Things you can carry, drop, give, hide, or take from a fallen NPC. Same-key stacks auto-merge on +gear/add." },
+    { "cmd": "+gear/add pistol-light", "label": "buy pistol" },
+    { "cmd": "+gear/add magazine-9mm-light", "label": "buy first mag" },
+    { "cmd": "+gear/add magazine-9mm-light", "label": "second mag merges into stack" },
+    { "expect": "x2" },
+    { "cmd": "+gear/add magazine-9mm-light", "label": "third mag" },
+    { "expect": "x3" },
+    { "cmd": "+gear", "label": "loadout with ammo section" },
+    { "expect": "Ammo" },
+
+    { "sub": "Split a Stack" },
+    { "note": "Split off N rounds into a separate stack -- e.g. to give one mag away or hide one." },
+    { "cmd": "+gear/split 2=1", "label": "split off one mag" },
+    { "expect": "split" },
+
+    { "sub": "Reload Consumes a Stack" },
+    { "note": "+gear/reload pulls one magazine from inventory and refills the equipped weapon's clip. No more free reloads." },
+    { "cmd": "+gear/equip 1", "label": "wield pistol" },
+    { "cmd": "+gear/reload", "label": "reload from spare mag" },
+    { "expect": "reload" },
+
+    { "sub": "Name-Fallback Ambiguity" },
+    { "note": "Substring matches that hit multiple items list all candidates with their slot numbers so the staff knows to disambiguate." },
+    { "cmd": "+gear/damage pistol=2 for Marcus", "as": "admin", "label": "ambiguous: pistol matches gun AND magazines" },
+    { "expect": "Multiple matches" },
+
+    { "sub": "Durability and Structure (Staff Only)" },
+    { "note": "Items have Durability (soak) and Structure (hp). /damage and /repair are builder+. Damage soaks against Durability; whatever gets through chips Structure. At 0 the item is broken and force-unequipped." },
+    { "cmd": "+gear/damage Pistol, Light=2 for Marcus", "as": "admin", "label": "chip the pistol with full name" },
+    { "expect": "hp" },
+    { "cmd": "+gear/repair Pistol, Light=1 for Marcus", "as": "admin", "label": "patch the pistol" },
+    { "expect": "hp" }
   ]
 }

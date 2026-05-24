@@ -1,7 +1,7 @@
 // Tests for +sheet/virtue, /vice, /rest -- Willpower regeneration.
 
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import {
   sheetRestExec,
@@ -26,7 +26,7 @@ describe("+sheet/virtue", OPTS, () => {
       args: ["virtue", ""],
     });
     await sheetVirtueExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.advantages.willpowerCurrent, 6);
     assertStringIncludes(u._sent[0], "Virtue triggered");
     assertStringIncludes(u._sent[0], "6/6");
@@ -74,7 +74,7 @@ describe("+sheet/vice", OPTS, () => {
       args: ["vice", "= one too many"],
     });
     await sheetViceExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.advantages.willpowerCurrent, 3);
     assertStringIncludes(u._sent[0], "Vice indulged");
     assertStringIncludes(u._sent[0], "3/6");
@@ -98,7 +98,7 @@ describe("+sheet/rest", OPTS, () => {
       args: ["rest", ""],
     });
     await sheetRestExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.advantages.willpowerCurrent, 7);
     assertStringIncludes(u._sent[0], "Full rest");
   });
@@ -110,6 +110,6 @@ describe("+sheet/rest", OPTS, () => {
     });
     await sheetRestExec(u);
     assertEquals(u._dbCalls[0][1], "$set");
-    assertEquals(Object.keys(u._dbCalls[0][2] as any)[0], "data.cofd");
+    assertEquals(Object.keys(u._dbCalls[0][2] as Record<string, unknown>)[0], "data.cofd");
   });
 });

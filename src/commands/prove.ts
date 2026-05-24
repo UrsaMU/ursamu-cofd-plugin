@@ -11,7 +11,7 @@ import {
   inventoryItems,
   displayName,
 } from "../equipment/index.ts";
-import { type CofdSheet } from "../stats/index.ts";
+import type { CofdSheet } from "../stats/index.ts";
 
 const MAX_TRAITS = 8;
 

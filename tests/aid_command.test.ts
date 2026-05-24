@@ -3,7 +3,7 @@
 // exceptional bonus, dramatic-failure backfire, no-op on failure) lives in
 // resolveAid() and is tested directly here.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { resolveAid, parseAidArgs } from "../src/commands/aid.ts";
 import type { HealthTrack } from "../src/stats/sheet.ts";
 

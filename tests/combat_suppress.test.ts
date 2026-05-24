@@ -2,7 +2,7 @@
 // Exploiter test: confirms /suppress can't be used to sneak damage past
 // the no-damage rule.
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   addParticipant,
   applySuppression,
@@ -19,13 +19,18 @@ function seedActor(store: MockObjectStore, id: string, name: string) {
   const sheet = defaultSheet();
   sheet.attributes.Dexterity = 3;
   sheet.attributes.Composure = 2;
-  const obj = store.create({ id, name, flags: new Set(["player", "connected"]), state: { cofd: sheet } });
-  // deno-lint-ignore no-explicit-any
-  (obj as any).id = id;
-  // deno-lint-ignore no-explicit-any
-  (store as any).store.delete(obj.id);
-  // deno-lint-ignore no-explicit-any
-  (store as any).store.set(id, obj);
+  const obj = store.create({
+    id,
+    name,
+    flags: new Set(["player", "connected"]),
+    state: { cofd: sheet },
+  });
+  obj.id = id;
+  const rawStore = (store as unknown as {
+    store: Map<string, Record<string, unknown>>;
+  }).store;
+  rawStore.delete(obj.id);
+  rawStore.set(id, obj as unknown as Record<string, unknown>);
   return obj;
 }
 
@@ -39,15 +44,14 @@ Deno.test("applySuppression pins every other participant", OPTS, async () => {
   await addParticipant(enc.id, alice);
   await addParticipant(enc.id, bob);
   await addParticipant(enc.id, cass);
-  // deno-lint-ignore no-explicit-any
-  (u.db as any).search = async (q: Record<string, unknown>) => {
+  (u.db as unknown as Record<string, unknown>).search = (
+    q: Record<string, unknown>,
+  ) => {
     if (q.id) {
-      // deno-lint-ignore no-explicit-any
-      const found = (store as any).store.get(q.id);
-      return found ? [found] : [];
+      const found = store.get(q.id as string);
+      return Promise.resolve(found ? [found] : []);
     }
-    // deno-lint-ignore no-explicit-any
-    return (store as any).search(q);
+    return Promise.resolve(store.search(q));
   };
   await rollInitiative(enc.id, u);
 
@@ -75,22 +79,25 @@ Deno.test("suppression applies no damage to participants", OPTS, async () => {
   const victim = seedActor(store, "victim", "Victim");
   await addParticipant(enc.id, shooter);
   await addParticipant(enc.id, victim);
-  // deno-lint-ignore no-explicit-any
-  (u.db as any).search = async (q: Record<string, unknown>) => {
+  (u.db as unknown as Record<string, unknown>).search = (
+    q: Record<string, unknown>,
+  ) => {
     if (q.id) {
-      // deno-lint-ignore no-explicit-any
-      const f = (store as any).store.get(q.id);
-      return f ? [f] : [];
+      const f = store.get(q.id as string);
+      return Promise.resolve(f ? [f] : []);
     }
-    // deno-lint-ignore no-explicit-any
-    return (store as any).search(q);
+    return Promise.resolve(store.search(q));
   };
   await rollInitiative(enc.id, u);
 
-  // deno-lint-ignore no-explicit-any
-  const before = JSON.stringify(((store as any).store.get("victim") as any).state.cofd.health);
+  const vicBefore = store.get("victim") as unknown as {
+    state: { cofd: { health: unknown } };
+  };
+  const before = JSON.stringify(vicBefore.state.cofd.health);
   await applySuppression(enc.id, "shooter");
-  // deno-lint-ignore no-explicit-any
-  const after = JSON.stringify(((store as any).store.get("victim") as any).state.cofd.health);
+  const vicAfter = store.get("victim") as unknown as {
+    state: { cofd: { health: unknown } };
+  };
+  const after = JSON.stringify(vicAfter.state.cofd.health);
   assertEquals(after, before, "suppression must not modify victim health");
 });

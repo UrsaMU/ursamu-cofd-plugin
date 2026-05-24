@@ -307,7 +307,16 @@ function scaleForTier(a: NpcArchetype, tier: NpcTier): NpcArchetype {
 export function sheetFromArchetype(
   a: NpcArchetype,
   tier?: NpcTier,
-): CofdSheet & { npc: { archetype: string; tier: NpcTier; dreadPowers: string[] } } {
+  opts: { aiArchetype?: string; lootTable?: string } = {},
+): CofdSheet & {
+  npc: {
+    archetype: string;
+    tier: NpcTier;
+    dreadPowers: string[];
+    aiArchetype: string;
+    lootTable?: string;
+  };
+} {
   const scaled = tier ? scaleForTier(a, tier) : a;
   const wpMax = scaled.attributes.resolve + scaled.attributes.composure;
 
@@ -371,7 +380,13 @@ export function sheetFromArchetype(
     tempStats: {},
     tilts: [],
     equipment: { equippedWeapon: null, equippedArmor: null },
-    npc: { archetype: scaled.key, tier: scaled.tier, dreadPowers },
+    npc: {
+      archetype: scaled.key,
+      tier: scaled.tier,
+      dreadPowers,
+      aiArchetype: opts.aiArchetype ?? "beshilu-swarmer",
+      ...(opts.lootTable ? { lootTable: opts.lootTable } : {}),
+    },
   };
 }
 

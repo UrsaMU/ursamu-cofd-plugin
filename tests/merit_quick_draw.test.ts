@@ -1,6 +1,6 @@
 // Quick Draw -- instanced per weapon class (firearms / melee / thrown).
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { hasMatchingQuickDraw } from "../src/combat/modifiers.ts";
 import { defaultSheet } from "../src/stats/sheet.ts";
 

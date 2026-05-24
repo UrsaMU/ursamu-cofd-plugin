@@ -1,7 +1,7 @@
 // Tests for instanced ("qualified") merits — Language (Spanish), etc.
 
-import { assertEquals, assertThrows, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertThrows, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import {
   parseMeritRef,

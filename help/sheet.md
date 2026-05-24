@@ -24,12 +24,12 @@ Examples:
   +sheet                              View your own sheet.
   +sheet Marcus                       View another player's sheet.
   +sheet/set strength=3               Set your Strength to 3.
-  +sheet/set Marcus/clan=Ventrue      Set Marcus's Clan (builder+).
+  +sheet/set Marcus/court=Spring      Set Marcus's Court (builder+).
   +sheet/set specialty/athletics=Climbing
   +sheet/set specialty/brawl=Boxing: southpaw stance
   +sheet/set athletics=               Reset Athletics to 0.
-  +sheet/virtue = Stood up to the prince
-  +sheet/vice = One drink too many at the gala
+  +sheet/virtue = Stood up to the Huntsman
+  +sheet/vice = One drink too many at the goblin market
   +sheet/rest                         Full night's rest.
 
 More:

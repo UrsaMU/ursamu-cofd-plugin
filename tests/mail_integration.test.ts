@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { DBO } from "@ursamu/ursamu";
 import type { IMail } from "@ursamu/mail-plugin";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
@@ -54,9 +54,9 @@ describe("mail integration", OPTS, () => {
     await seedJob(num);
 
     const u = mockU({ me: mockPlayer({ id: "wiz", name: "Wiz" }), args: ["", "Eve=Welcome."] });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
     u.util.displayName = (o) => o.name ?? "?";
-    u.db.modify = async () => {};
+    u.db.modify = () => Promise.resolve();
 
     await approveExec(u);
     assertStringIncludes(u._sent.join("\n"), "approved by Wiz");
@@ -68,9 +68,9 @@ describe("mail integration", OPTS, () => {
     await seedJob(num);
 
     const u = mockU({ me: mockPlayer({ id: "wiz", name: "Wiz" }), args: ["", "Frank=Too thin."] });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
     u.util.displayName = (o) => o.name ?? "?";
-    u.db.modify = async () => {};
+    u.db.modify = () => Promise.resolve();
 
     await unapproveExec(u);
     assertStringIncludes(u._sent.join("\n"), "returned for revision by Wiz");

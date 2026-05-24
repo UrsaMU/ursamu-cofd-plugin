@@ -1,7 +1,7 @@
 // +combat/surrender -- declare surrender; attackers cannot target.
 // Verifies the flag blocks +attack and clears on aggressive action.
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   addParticipant,
   createEncounter,
@@ -23,8 +23,10 @@ function seed(store: MockObjectStore, id: string, name: string) {
   sheet.skills.brawl = 2;
   sheet.skills.athletics = 2;
   const obj = mockPlayer({ id, name, state: { cofd: sheet } });
-  // deno-lint-ignore no-explicit-any
-  (store as any).store.set(id, obj);
+  const rawStore = (store as unknown as {
+    store: Map<string, Record<string, unknown>>;
+  }).store;
+  rawStore.set(id, obj as unknown as Record<string, unknown>);
   return obj;
 }
 
@@ -41,20 +43,21 @@ Deno.test("surrendered participant blocks +attack", OPTS, async () => {
 
   // Wire u.db.search to find the victim by id.
   const u = mockU({ me: attacker, objectStore: store, args: ["Vincent"] });
-  // deno-lint-ignore no-explicit-any
-  (u as any).here = { id: roomId, broadcast: () => {} };
-  // deno-lint-ignore no-explicit-any
-  (u.db as any).search = async (q: Record<string, unknown>) => {
-    if (q.id) {
-      // deno-lint-ignore no-explicit-any
-      const f = (store as any).store.get(q.id);
-      return f ? [f] : [];
-    }
-    // deno-lint-ignore no-explicit-any
-    return (store as any).search(q);
+  (u as unknown as { here: Record<string, unknown> }).here = {
+    id: roomId,
+    broadcast: () => {},
   };
-  // deno-lint-ignore no-explicit-any
-  (u.util as any).target = async () => victim;
+  (u.db as unknown as Record<string, unknown>).search = (
+    q: Record<string, unknown>,
+  ) => {
+    if (q.id) {
+      const f = store.get(q.id as string);
+      return Promise.resolve(f ? [f] : []);
+    }
+    return Promise.resolve(store.search(q));
+  };
+  (u.util as unknown as Record<string, unknown>).target = () =>
+    Promise.resolve(victim);
 
   await rollInitiative(enc.id, u);
   // Surrender victim.
@@ -63,21 +66,23 @@ Deno.test("surrendered participant blocks +attack", OPTS, async () => {
   const fresh = await getEncounterForRoom(roomId);
   assert(fresh);
   const idx = fresh.participants.findIndex((p) => p.actorId === attacker.id);
-  // deno-lint-ignore no-explicit-any
   const { encounterDb } = await import("../src/combat/encounter.ts");
-  // deno-lint-ignore no-explicit-any
-  await encounterDb.update({ id: enc.id } as any, { ...fresh, turnIdx: idx });
+  await encounterDb.update(
+    { id: enc.id } as unknown as Record<string, unknown>,
+    { ...fresh, turnIdx: idx },
+  );
 
   await attackExec(u);
-  // deno-lint-ignore no-explicit-any
-  const sent = (u as any)._sent as string[];
+  const sent = (u as unknown as { _sent: string[] })._sent;
   assert(
     sent.some((m: string) => /surrender/i.test(m)),
     "expected surrender rejection, got: " + sent.join(" | "),
   );
   // Victim sheet untouched.
-  // deno-lint-ignore no-explicit-any
-  assertEquals((store as any).store.get(victimId).state.cofd.health.bashing, 0);
+  const vicObj = store.get(victimId) as unknown as {
+    state: { cofd: { health: { bashing: number } } };
+  };
+  assertEquals(vicObj.state.cofd.health.bashing, 0);
 });
 
 Deno.test("aggressive action clears surrender flag", OPTS, async () => {
@@ -93,20 +98,21 @@ Deno.test("aggressive action clears surrender flag", OPTS, async () => {
   await addParticipant(enc.id, victim);
 
   const u = mockU({ me: attacker, objectStore: store, args: ["Vincent"] });
-  // deno-lint-ignore no-explicit-any
-  (u as any).here = { id: roomId, broadcast: () => {} };
-  // deno-lint-ignore no-explicit-any
-  (u.db as any).search = async (q: Record<string, unknown>) => {
-    if (q.id) {
-      // deno-lint-ignore no-explicit-any
-      const f = (store as any).store.get(q.id);
-      return f ? [f] : [];
-    }
-    // deno-lint-ignore no-explicit-any
-    return (store as any).search(q);
+  (u as unknown as { here: Record<string, unknown> }).here = {
+    id: roomId,
+    broadcast: () => {},
   };
-  // deno-lint-ignore no-explicit-any
-  (u.util as any).target = async () => victim;
+  (u.db as unknown as Record<string, unknown>).search = (
+    q: Record<string, unknown>,
+  ) => {
+    if (q.id) {
+      const f = store.get(q.id as string);
+      return Promise.resolve(f ? [f] : []);
+    }
+    return Promise.resolve(store.search(q));
+  };
+  (u.util as unknown as Record<string, unknown>).target = () =>
+    Promise.resolve(victim);
 
   await rollInitiative(enc.id, u);
   // Attacker surrenders, then attacks. Surrender should clear.
@@ -114,10 +120,11 @@ Deno.test("aggressive action clears surrender flag", OPTS, async () => {
   const pre = await getEncounterForRoom(roomId);
   assert(pre);
   const idx = pre.participants.findIndex((p) => p.actorId === attacker.id);
-  // deno-lint-ignore no-explicit-any
   const { encounterDb } = await import("../src/combat/encounter.ts");
-  // deno-lint-ignore no-explicit-any
-  await encounterDb.update({ id: enc.id } as any, { ...pre, turnIdx: idx });
+  await encounterDb.update(
+    { id: enc.id } as unknown as Record<string, unknown>,
+    { ...pre, turnIdx: idx },
+  );
 
   await attackExec(u);
   const post = await getEncounterForRoom(roomId);

@@ -13,14 +13,14 @@
     "jsr:@std/internal@0.224": "0.224.0",
     "jsr:@std/internal@^1.0.12": "1.0.13",
     "jsr:@std/internal@^1.0.13": "1.0.13",
-    "jsr:@std/path@*": "0.224.0",
+    "jsr:@std/path@*": "1.1.4",
     "jsr:@std/path@0.224": "0.224.0",
     "jsr:@std/path@0.224.0": "0.224.0",
     "jsr:@std/semver@1": "1.0.8",
     "jsr:@std/testing@*": "1.0.18",
-    "jsr:@ursamu/mushcode@*": "0.6.0",
-    "jsr:@ursamu/ursamu@*": "2.6.0",
-    "jsr:@ursamu/ursamu@^2.6.0": "2.6.0",
+    "jsr:@std/testing@0.224": "0.224.0",
+    "jsr:@ursamu/ursamu@*": "2.7.0",
+    "jsr:@ursamu/ursamu@^2.6.0": "2.7.0",
     "jsr:@zaubrik/djwt@^3.0.2": "3.0.2",
     "npm:@deno/sandbox@0.10.0": "0.10.0",
     "npm:@digibear/tags@1.0.0": "1.0.0",
@@ -81,8 +81,17 @@
         "jsr:@std/assert@0.224"
       ]
     },
+    "@std/path@1.1.4": {
+      "integrity": "1d2d43f39efb1b42f0b1882a25486647cb851481862dc7313390b2bb044314b5",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.12"
+      ]
+    },
     "@std/semver@1.0.8": {
       "integrity": "dc830e8b8b6a380c895d53fbfd1258dc253704ca57bbe1629ac65fd7830179b7"
+    },
+    "@std/testing@0.224.0": {
+      "integrity": "371b8a929aa7132240d5dd766a439be8f780ef5c176ab194e0bcab72370c761e"
     },
     "@std/testing@1.0.18": {
       "integrity": "d3152f57b11666bf6358d0e127c7e3488e91178b0c2d8fbf0793e1c53cd13cb1",
@@ -91,11 +100,8 @@
         "jsr:@std/internal@^1.0.13"
       ]
     },
-    "@ursamu/mushcode@0.6.0": {
-      "integrity": "0503df5a0b1a16b3335739ae7d335cf142746527f5be47f41711b6639ad88ee5"
-    },
-    "@ursamu/ursamu@2.6.0": {
-      "integrity": "59d59a62f398374ac16dd82d6afe6dd64588cd2e6bd29e8759b88ee5cb18df60",
+    "@ursamu/ursamu@2.7.0": {
+      "integrity": "80af2e54afd2ee14cc7214a74913675c0b82432da676df565aea4e2426ea82ac",
       "dependencies": [
         "jsr:@std/dotenv",
         "jsr:@std/flags",
@@ -470,25 +476,14 @@
         "strip-ansi@7.2.0"
       ]
     },
-    "ws@8.20.0": {
-      "integrity": "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA=="
+    "ws@8.21.0": {
+      "integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="
     },
     "zod@4.4.3": {
       "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="
     }
   },
   "remote": {
-    "https://deno.land/std@0.188.0/_util/asserts.ts": "178dfc49a464aee693a7e285567b3d0b555dc805ff490505a8aae34f9cfb1462",
-    "https://deno.land/std@0.188.0/_util/os.ts": "d932f56d41e4f6a6093d56044e29ce637f8dcc43c5a90af43504a889cf1775e3",
-    "https://deno.land/std@0.188.0/path/_constants.ts": "e49961f6f4f48039c0dfed3c3f93e963ca3d92791c9d478ac5b43183413136e0",
-    "https://deno.land/std@0.188.0/path/_interface.ts": "6471159dfbbc357e03882c2266d21ef9afdb1e4aa771b0545e90db58a0ba314b",
-    "https://deno.land/std@0.188.0/path/_util.ts": "d7abb1e0dea065f427b89156e28cdeb32b045870acdf865833ba808a73b576d0",
-    "https://deno.land/std@0.188.0/path/common.ts": "ee7505ab01fd22de3963b64e46cff31f40de34f9f8de1fff6a1bd2fe79380000",
-    "https://deno.land/std@0.188.0/path/glob.ts": "d479e0a695621c94d3fd7fe7abd4f9499caf32a8de13f25073451c6ef420a4e1",
-    "https://deno.land/std@0.188.0/path/mod.ts": "ee161baec5ded6510ee1d1fb6a75a0f5e4b41f3f3301c92c716ecbdf7dae910d",
-    "https://deno.land/std@0.188.0/path/posix.ts": "8b7c67ac338714b30c816079303d0285dd24af6b284f7ad63da5b27372a2c94d",
-    "https://deno.land/std@0.188.0/path/separator.ts": "0fb679739d0d1d7bf45b68dacfb4ec7563597a902edbaf3c59b50d5bcadd93b1",
-    "https://deno.land/std@0.188.0/path/win32.ts": "d186344e5583bcbf8b18af416d13d82b35a317116e6460a5a3953508c3de5bba",
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/mod.ts": "55d68717f05329c83935a2193874194e750ec0a0c7f275c2ce2a857b328f383f",
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/commands.ts": "be923766340a6664f696c09601e2c693517d74b3e1162ee2e507af8b3cae46e4",
     "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/src/hooks.ts": "c965f07d51864787bb42d7ea86b6b0899e9b2e7d0f4c58eede71f04142c06e34",

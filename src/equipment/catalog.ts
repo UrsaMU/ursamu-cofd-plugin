@@ -55,19 +55,42 @@ export interface ServiceEntry {
   diceBonus: number;
 }
 
+export interface AmmoEntry {
+  key: string;
+  name: string;
+  /** Catalog keys of weapons this ammo loads into. */
+  forWeaponKeys: string[];
+  /** Round count when full (informational; clip is governed by the weapon). */
+  rounds: number;
+  availability: number;
+  size: number;
+  /** True if the magazine is small enough to conceal under street clothes. */
+  concealed: boolean;
+}
+
 interface EquipmentCatalog {
   weapons: { ranged: WeaponEntry[]; melee: WeaponEntry[] };
   armor: ArmorEntry[];
   gear: { mental: GearEntry[]; physical: GearEntry[]; social: GearEntry[] };
   services: ServiceEntry[];
+  ammo: AmmoEntry[];
 }
 
 const catalogUrl = new URL("../../resources/equipment.json", import.meta.url);
+const ammoUrl = new URL("../../resources/ammo.json", import.meta.url);
 
-/** Full Appendix One catalog. */
-export const EQUIPMENT: EquipmentCatalog = JSON.parse(
+const _baseCatalog: Omit<EquipmentCatalog, "ammo"> = JSON.parse(
   Deno.readTextFileSync(catalogUrl),
 );
+const _ammoFile: { ammo: AmmoEntry[] } = JSON.parse(
+  Deno.readTextFileSync(ammoUrl),
+);
+
+/** Full Appendix One catalog plus the ammo extension. */
+export const EQUIPMENT: EquipmentCatalog = {
+  ..._baseCatalog,
+  ammo: _ammoFile.ammo,
+};
 
 export type ItemType =
   | "weapon-ranged"
@@ -76,11 +99,12 @@ export type ItemType =
   | "gear-mental"
   | "gear-physical"
   | "gear-social"
-  | "service";
+  | "service"
+  | "ammo";
 
 export interface ResolvedItem {
   type: ItemType;
-  entry: WeaponEntry | ArmorEntry | GearEntry | ServiceEntry;
+  entry: WeaponEntry | ArmorEntry | GearEntry | ServiceEntry | AmmoEntry;
 }
 
 /** Resolve a catalog key to its type-tagged entry, or undefined if unknown. */
@@ -106,6 +130,9 @@ export function lookupItem(key: string): ResolvedItem | undefined {
 
   const service = EQUIPMENT.services.find((s) => s.key === k);
   if (service) return { type: "service", entry: service };
+
+  const ammo = EQUIPMENT.ammo.find((a) => a.key === k);
+  if (ammo) return { type: "ammo", entry: ammo };
 
   return undefined;
 }

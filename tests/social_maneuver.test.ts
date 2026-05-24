@@ -1,7 +1,7 @@
 // Pure-ops tests for the Social Maneuvering subsystem.
 
-import { assert, assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   applyHardLeverage,
   applySoftLeverage,
@@ -127,7 +127,7 @@ describe("attemptDoor", () => {
     for (let i = 0; i < 20; i++) {
       const r = attemptDoor(m, { pool: 0, resistance: 8 });
       m = r.maneuver;
-      if (r.outcome === "failed") hits++;
+      if (r.outcome === "failed" || r.outcome === "dramatic-fail") hits++;
       if (m.immune) break;
     }
     assert(hits > 0);

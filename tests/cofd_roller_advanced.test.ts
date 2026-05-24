@@ -1,5 +1,5 @@
-import { assertEquals, assert } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assert } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { executeRoll } from "../cofd.ts";
 
 describe("CoFD Advanced Roller — n-again and rote", () => {

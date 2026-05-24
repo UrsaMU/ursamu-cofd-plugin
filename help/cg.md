@@ -10,11 +10,11 @@ Syntax:
 
 Stages:
   1. Core Identity        Concept, Virtue, Vice.
-  2. Supernatural Template  Mortal, Vampire, Werewolf, Mage, Changeling.
-  3. Template Specifics   Clan, Auspice, Path, Seeming, etc.
+  2. Supernatural Template  Mortal, Changeling: The Lost (changeling).
+  3. Template Specifics   Seeming, Kith, Court, Needle, Thread.
   4. Attributes           Distribute {5, 4, 3} extra dots above base 1.
   5. Skills               Distribute {11, 9, 7} dots.
-  6. Powers               Mortal 0, Vamp/Were/Chan 3, Mage 6.
+  6. Powers               Mortal 0, Changeling 3.
 
 Notes:
   +cg/submit on stage 6 finalizes the sheet to state.cofd and clears the
@@ -24,9 +24,10 @@ Examples:
   +cg/set concept=Street Detective
   +cg/set virtue=Just
   +cg/submit
-  +cg/set template=vampire
+  +cg/set template=changeling
   +cg/submit
-  +cg/set clan=Daeva
+  +cg/set seeming=Fairest
+  +cg/set court=Spring
   +cg/set Strength=3
   +cg/submit
 

@@ -1,7 +1,7 @@
 sheet traits  -- Settable trait categories for +sheet/set.
 
 Identity      concept, virtue, vice
-Template      template (mortal, vampire, werewolf, mage, changeling)
+Template      template (mortal, changeling)
 Attributes    9 CoFD attributes, 1-5
 Skills        24 CoFD skills, 0-5
 Specialties   specialty/<skill>=<name>[: <description>]
@@ -11,10 +11,10 @@ Merits        by merit key. Instanced merits (Language, Contacts,
                 +sheet/set contacts(police)=2
               Multiple qualifiers under the same merit stack as
               separate purchases.
-Morality      humanity, harmony, wisdom, clarity, or integrity
-Power Stat    blood potency (bp), gnosis, wyrd, primal urge (pu)
-Energy        vitae, essence, mana, glamour
-Custom        clan, covenant, auspice, tribe, path, order, seeming, court
+Morality      clarity or integrity
+Power Stat    wyrd
+Energy        glamour
+Custom        seeming, kith, court, needle, thread
 Other         willpower, size (staff-only; 1-10)
 
 Resetting:

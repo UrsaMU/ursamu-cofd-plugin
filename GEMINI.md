@@ -1,4 +1,4 @@
-# CLAUDE.md — Chronicles of Darkness (CoFD) Plugin
+# GEMINI.md — Chronicles of Darkness (CoFD) Plugin
 
 UrsaMU plugin for Chronicles of Darkness 2e. Sheets, chargen, dice.
 
@@ -9,7 +9,7 @@ npx @lhi/ursamu-dev         # install the dev skill
 ursamu-dev --install-hooks  # block commits that fail the audit
 ```
 
-Activate in Claude Code: `/ursamu-dev`. The skill enforces a six-stage
+Activate in Gemini / Antigravity: `/ursamu-dev`. The skill enforces a six-stage
 pipeline (Design → Generate → Audit → Refine → Test → Docs) and knows every
 import path, SDK method, lock level, and security pattern. Use it for every
 feature — no exceptions.
@@ -22,8 +22,8 @@ feature — no exceptions.
 deno task test                       # full suite — must stay green
 deno lint                            # must be clean
 deno check index.ts                  # plugin loads cleanly
-bash ~/.claude/skills/skills/ursamu-dev/hooks/advance-stage.sh --confirm-design
-bash ~/.claude/skills/skills/ursamu-dev/hooks/advance-stage.sh --pass-audit
+bash ~/.gemini/skills/skills/ursamu-dev/hooks/advance-stage.sh --confirm-design
+bash ~/.gemini/skills/skills/ursamu-dev/hooks/advance-stage.sh --pass-audit
 ```
 
 ---
@@ -385,7 +385,7 @@ Step types:
 
 ## Full API reference
 
-`~/.claude/skills/ursamu-dev/references/api-reference.md` — every type,
+`~/.gemini/skills/ursamu-dev/references/api-reference.md` — every type,
 SDK method, event payload, and lock expression. Read it before writing
 any code.
 

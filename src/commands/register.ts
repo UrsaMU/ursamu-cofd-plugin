@@ -16,8 +16,6 @@ import { beatExec } from "./beat.ts";
 import { xpExec } from "./xp.ts";
 import { conditionExec } from "./condition.ts";
 import { aspirationExec } from "./aspiration.ts";
-import { vitaeExec } from "./vitae.ts";
-import { touchstoneExec } from "./touchstone.ts";
 import { approveExec, unapproveExec } from "./approve.ts";
 import { notesExec } from "./notes.ts";
 import { gearExec, gearReload } from "./gear.ts";
@@ -32,6 +30,7 @@ import { aidExec } from "./aid.ts";
 import { socialExec } from "./social.ts";
 import { integrityExec } from "./integrity.ts";
 import { extendedExec } from "./extended.ts";
+import { turnExec } from "./turn.ts";
 
 addCmd({
   name: "+extended",
@@ -47,8 +46,8 @@ Switches:
                                    default is scene. Add /cum for cumulative
                                    penalty (each attempt subtracts attempts-so-far).
   /roll [<extra-mod>]              Roll your single active action. Stacks with
-                                   /wp /rote /9again /8again. Dramatic failure
-                                   imposes -2 on the next attempt.
+                                   /wp /rote /9again /8again /job=<number>.
+                                   Dramatic failure imposes -2 on the next attempt.
   /status [<id>]                   Show the action (default: your active one).
   /list [mine|here|all]            List actions in scope. /list all is staff-only.
   /abandon <id>                    Cancel an action (owner or staff).
@@ -60,7 +59,7 @@ Examples:
   +extended/start intelligence+occult=10 Decipher the grimoire
   +extended/start strength+stamina=15/6/hour/cum Force the cell door
   +extended/roll
-  +extended/roll/wp/9again -1
+  +extended/roll/wp/9again/job=123 -1
   +extended/status
   +extended/list here
   +extended/abandon ext-12345-678`,
@@ -262,54 +261,6 @@ Examples:
 });
 
 addCmd({
-  name: "+vitae",
-  pattern: /^\+vitae(?:\/(\S+))?\s*(.*)/i,
-  lock: "connected",
-  category: "Cofd",
-  help: `+vitae [<player>]  -- View or modify a vampire's Vitae pool.
-
-Switches:
-  /spend [<n>] [for <player>]    Spend N Vitae (default 1).
-  /gain [<n>] [for <player>]     Gain N Vitae (capped at BP max).
-  /blush [for <player>]          Spend 1 Vitae for Blush of Life.
-  /boost <attr> [for <player>]   Spend 1 Vitae to boost a Physical Attribute.
-
-Cross-player edits require canEdit (builder+). Only vampires have Vitae.
-
-Examples:
-  +vitae                         View your Vitae pool.
-  +vitae/spend                   Spend 1 Vitae.
-  +vitae/spend 3                 Spend 3 Vitae.
-  +vitae/gain 2 for Marcus       Add 2 Vitae to Marcus (builder+).
-  +vitae/blush                   Blush of Life: appear human for one hour.
-  +vitae/boost strength          +2 Strength for the scene.`,
-  exec: vitaeExec,
-});
-
-addCmd({
-  name: "+touchstone",
-  pattern: /^\+touchstone(?:\/(\S+))?\s*(.*)/i,
-  lock: "connected",
-  category: "Cofd",
-  help: `+touchstone [<player>]  -- View or set Mask and Dirge Touchstones (vampire only).
-
-Switches:
-  /mask <name> [for <player>]    Set the Mask (public-persona) Touchstone.
-  /dirge <name> [for <player>]   Set the Dirge (predatory) Touchstone.
-  /clear-mask [for <player>]     Clear the Mask Touchstone.
-  /clear-dirge [for <player>]    Clear the Dirge Touchstone.
-
-Cross-player edits require canEdit (builder+).
-
-Examples:
-  +touchstone                          View your Touchstones.
-  +touchstone/mask Lia Martinez        Set your Mask anchor.
-  +touchstone/dirge The Hunger I Hide  Set your Dirge anchor.
-  +touchstone/clear-mask               Clear your Mask (Humanity risk).`,
-  exec: touchstoneExec,
-});
-
-addCmd({
   name: "+cg",
   pattern: /^\+cg(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
@@ -405,34 +356,39 @@ addCmd({
   pattern: /^\+gear(?:\/(\S+))?\s*(.*)/i,
   lock: "connected",
   category: "Cofd",
-  help: `+gear [<player>]  -- Browse equipment and manage carried items.
+  help: `+gear [<player>] [<filter>]  -- Browse equipment and manage carried items.
 
 Switches:
-  /list [<cat>]                          Catalog by category (weapons|ranged|melee|armor|mental|physical|social|services).
+  /list [<cat>]                          Catalog by category (weapons|ranged|melee|armor|mental|physical|social|services|ammo).
   /show <key>                            Full catalog entry for an item.
-  /add <key>[/<note>] [for <player>]     Add an item to inventory.
+  /add <key>[/<note>] [for <player>]     Add an item; ammo merges into existing stack.
   /remove <#> [for <player>]             Discard inventory slot #.
   /equip <#> [for <player>]              Equip weapon or armor at slot #.
   /unequip <weapon|armor> [for <player>] Unequip a slot.
-  /drop <#> [for <player>]               Drop an unequipped item here.
-  /pickup <name|#>                       Pick up a dropped item from this room.
-  /give <#> to <player>                  Hand an inventory item to another player.
-  /reload [<#>] [for <player>]           Reload a firearm (equipped if no <#>).
+  /reload [<#|name>] [for <player>]      Reload a firearm; consumes one ammo stack.
+  /split <#>=<n> [for <player>]          Split <n> rounds off an ammo stack.
+  /damage <#|name>[=<n>] [for <player>]  Apply <n> damage; soaks by Durability.
+  /repair <#|name>[=<n>] [for <player>]  Repair <n> hp; clamps to max.
 
-Equipped armor applies Defense and Speed penalties on the sheet.
-Equipped weapon damage adds to +roll/weapon successes on a hit.
-Firearms track their own ammo; firing decrements, /reload refills.
-Cross-player edits require canEdit (builder+).
+Native get/drop/give handle moving items between players and the room.
+Firearms track their own ammo; firing decrements, /reload consumes a stack.
+Broken items auto-unequip. Cross-player edits require canEdit (builder+).
 
 Examples:
   +gear                          View your inventory.
-  +gear/list weapons             Browse the weapon tables.
-  +gear/show kevlar-vest         Show the Kevlar Vest entry.
-  +gear/add pistol-light         Add a light pistol to your inventory.
+  +gear ammo                     View just your ammo stacks.
+  +gear/add pistol-light         Add a light pistol.
+  +gear/add magazine-9mm-light   Stack a 9mm magazine.
   +gear/equip 1                  Equip slot 1.
   +gear/reload                   Reload your equipped firearm.
-  +gear/drop 2                   Drop slot 2 in the current room.
-  +gear/give 1 to Marcus         Hand slot 1 to Marcus.`,
+  +gear/split 3=5                Split 5 rounds off ammo stack 3.
+  +gear/damage rifle=4           Apply 4 damage to your rifle.
+  +gear/repair vest=2            Repair 2 hp on your vest.
+
+More:
+  help gear ammo                 Magazines, stacking, concealment.
+  help gear durability           Soak math, broken state, repair.
+  help gear reload               Reload mechanics and ammo consumption.`,
   exec: gearExec,
 });
 
@@ -498,6 +454,31 @@ Notes:
   Private notes are visible only to their owner and staff. Cross-player
   edits require canEdit. Max name 40 chars; max text 8000 chars.`,
   exec: notesExec,
+});
+
+addCmd({
+  name: "+turn",
+  pattern: /^\+turn(?:\/(\S+))?\s*(.*)/i,
+  lock: "connected",
+  category: "Cofd",
+  help: `+turn[/sw] [args]  -- Per-actor turn helpers built on the AI walker.
+
+Switches:
+  /done                       Alias for +combat/next (smart walker).
+  /auto [<max-rounds>]        Builder+: pump until PC turn / all NPCs down /
+                              cap. Default 10, hard cap 50.
+  /reaction <posture> [target=<name>]
+                              Set your reaction posture for the next round.
+                              Postures: ambush, overwatch, guard,
+                              first-fire-on-adjacent.
+
+Examples:
+  +turn/done                       End your turn; AI takes over.
+  +turn/auto 5                     Builder: pump up to 5 rounds.
+  +turn/reaction ambush            Set ambush posture.
+  +turn/reaction overwatch target=Marcus
+                                   Overwatch keyed to Marcus.`,
+  exec: turnExec,
 });
 
 addCmd({
@@ -652,6 +633,10 @@ Switches:
   /powers                            List the Dread Powers / Numina catalog.
   /addpower <npc>=<key>              Attach a dread power to an NPC (staff).
   /rmpower <npc>=<key>               Detach a dread power (staff).
+  /ai <name>=<ai-archetype>          Set NPC AI archetype (staff). Valid:
+                                     beshilu-swarmer, azlu-stalker,
+                                     spirit-ridden-feral.
+  /aggro <name>=<target>             Spike NPC threat toward target (staff).
   /destroy <name-or-id>              Remove an NPC (staff only).
 
 Archetypes: thug, cultist, soldier, beast, lieutenant, boss, hunter,

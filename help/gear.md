@@ -1,18 +1,26 @@
-+gear  -- Browse the CoFD 2e equipment catalog and manage carried items.
-         Equipping armor applies Defense and Speed penalties on the sheet;
-         equipped weapon damage feeds +roll/weapon as bonus successes.
++gear [<player>] [<filter>]  -- Browse equipment and manage carried items.
 
 Syntax:
-  +gear                                  View your own inventory.
+  +gear                                  View your inventory.
   +gear <player>                         View another player's inventory.
-  +gear/list [<cat>]                     Catalog. Optional category filter
-                                         (weapons, ranged, melee, armor,
-                                         mental, physical, social, services).
+  +gear ammo|weapons|armor|gear          Filter the view by section.
+  +gear/list [<cat>]                     Catalog (weapons|ranged|melee|armor|
+                                         mental|physical|social|services|ammo).
   +gear/show <key>                       Full catalog entry.
-  +gear/add <key>[/<note>] [for <p>]     Add to inventory (optional note).
-  +gear/remove <#> [for <player>]        Remove inventory slot #.
+  +gear/add <key>[/<note>] [for <p>]     Add to inventory; ammo merges into
+                                         an existing stack.
+  +gear/remove <#> [for <player>]        Discard inventory slot #.
   +gear/equip <#> [for <player>]         Equip weapon/armor at slot #.
   +gear/unequip <weapon|armor> [for <p>] Clear an equipped slot.
+  +gear/reload [<#|name>] [for <p>]      Reload firearm; consumes one stack.
+  +gear/split <#>=<n> [for <player>]     Split <n> rounds off an ammo stack.
+  +gear/damage <#|name>[=<n>] [for <p>]  Apply <n> damage; soaks by Durability.
+  +gear/repair <#|name>[=<n>] [for <p>]  Repair <n> hp; clamps to max.
+
+Notes:
+  Native get/drop/give move items between players and the room.
+  Broken items auto-unequip and lose their dark flag.
+  Firearms track currentClip; firing decrements, /reload refills from a stack.
 
 Permissions:
   View              connected.
@@ -21,17 +29,19 @@ Permissions:
 
 Examples:
   +gear                          View your inventory.
-  +gear/list weapons             Browse ranged + melee.
-  +gear/show kevlar-vest         Show the Kevlar Vest entry.
+  +gear ammo                     Show only your ammo stacks.
   +gear/add pistol-light         Add a light pistol.
-  +gear/add knife/Heirloom       Add with a note.
+  +gear/add magazine-9mm-light   Add (or stack) a 9mm magazine.
   +gear/equip 1                  Equip slot 1.
-  +gear/unequip armor            Take off your armor.
+  +gear/reload                   Reload equipped firearm.
+  +gear/split 3=5                Split 5 rounds off ammo stack 3.
 
 More:
+  help gear ammo                 Magazines, stacking, concealment.
+  help gear durability           Soak math, broken state, repair.
+  help gear reload               Reload mechanics and ammo consumption.
   help gear weapons              Ranged + melee tables and rules.
   help gear armor                Armor ratings, Defense/Speed math.
-  help gear gear                 Equipment categories and dice bonuses.
   help gear inventory            Slot model, equip/unequip mechanics.
 
-See also: roll, sheet, condition, tilt, cofd
+See also: roll, sheet, condition, tilt, attack, cofd

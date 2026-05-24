@@ -1,9 +1,8 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { cgExec, sheetExec, sheetSetExec } from "../commands.ts";
 import type { CofdCgState } from "../cg.ts";
-import type { CofdSheet } from "../cofd.ts";
 
 describe("Chronicles of Darkness Guided Character Generation", { sanitizeResources: false, sanitizeOps: false }, () => {
   it("runs the full Mortal character generation lifecycle successfully", async () => {
@@ -12,19 +11,21 @@ describe("Chronicles of Darkness Guided Character Generation", { sanitizeResourc
     // Set up mock database to auto-mutate the player state when modified
     const u = mockU({
       me,
-      dbModify: async (_id, op, data: any) => {
+      dbModify: (_id, op, data: unknown) => {
+        const d = data as Record<string, unknown>;
         if (op === "$set") {
-          if (data["data.cofd_cg"] !== undefined) {
-            me.state.cofd_cg = data["data.cofd_cg"];
+          if (d["data.cofd_cg"] !== undefined) {
+            me.state.cofd_cg = d["data.cofd_cg"];
           }
-          if (data["data.cofd"] !== undefined) {
-            me.state.cofd = data["data.cofd"];
+          if (d["data.cofd"] !== undefined) {
+            me.state.cofd = d["data.cofd"];
           }
         } else if (op === "$unset") {
-          if ("data.cofd_cg" in data) {
+          if ("data.cofd_cg" in d) {
             delete me.state.cofd_cg;
           }
         }
+        return Promise.resolve();
       }
     });
 
@@ -71,7 +72,7 @@ describe("Chronicles of Darkness Guided Character Generation", { sanitizeResourc
     await cgExec(u);
     assertStringIncludes(u._sent.join("\n"), "Stage Advanced: Stage 2");
     
-    let cgState = me.state.cofd_cg as CofdCgState;
+    const cgState = me.state.cofd_cg as CofdCgState;
     assertEquals(cgState.stage, 2);
     assertEquals(cgState.sheet.concept, "Modern Knight");
 
@@ -205,12 +206,14 @@ describe("Chronicles of Darkness Guided Character Generation", { sanitizeResourc
     const me = mockPlayer({ id: "1", name: "Arthur" });
     const u = mockU({
       me,
-      dbModify: async (_id, op, data: any) => {
+      dbModify: (_id, op, data: unknown) => {
+        const d = data as Record<string, unknown>;
         if (op === "$set") {
-          if (data["data.cofd_cg"] !== undefined) {
-            me.state.cofd_cg = data["data.cofd_cg"];
+          if (d["data.cofd_cg"] !== undefined) {
+            me.state.cofd_cg = d["data.cofd_cg"];
           }
         }
+        return Promise.resolve();
       }
     });
 

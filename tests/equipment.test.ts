@@ -1,13 +1,11 @@
 // Equipment tests using real UrsaMU game objects (via MockObjectStore).
 
-import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU, MockObjectStore } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import {
-  carriedItems,
   createItem,
-  displayName,
   equipItem,
   equippedArmorEntry,
   equippedWeaponEntry,
@@ -155,8 +153,12 @@ describe("+gear command", OPTS, () => {
     const u = mockU({
       me,
       objectStore: store,
-      dbModify: async (_id, op, data: any) => {
-        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
+      dbModify: (_id, op, data: unknown) => {
+        const d = data as Record<string, unknown>;
+        if (op === "$set" && d["data.cofd"]) {
+          me.state.cofd = d["data.cofd"] as ReturnType<typeof defaultSheet>;
+        }
+        return Promise.resolve();
       },
     });
 
@@ -205,36 +207,36 @@ describe("+gear command", OPTS, () => {
     const u = mockU({
       me,
       objectStore: store,
-      dbModify: async (_id, op, data: any) => {
-        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
+      dbModify: (_id, op, data: unknown) => {
+        const d = data as Record<string, unknown>;
+        if (op === "$set" && d["data.cofd"]) {
+          me.state.cofd = d["data.cofd"] as ReturnType<typeof defaultSheet>;
+        }
+        return Promise.resolve();
       },
     });
     u.cmd.args = ["add", "pistol-light"]; await gearExec(u);
     u.cmd.args = ["equip", "1"]; await gearExec(u);
+    u.cmd.args = ["add", "magazine-9mm-light"]; await gearExec(u);
     u._sent.length = 0;
     u.cmd.args = ["reload", ""];
     await gearExec(u);
     assertStringIncludes(u._sent.join("\n"), "reload");
   });
 
-  it("drop puts item in room, pickup retrieves it", async () => {
+  it("drop and pickup switches no longer exist; native get/drop/give handle this", async () => {
     const store = new MockObjectStore();
     const ownerId = "player-gear-4";
     const me = mockPlayer({ id: ownerId, state: { cofd: defaultSheet() } });
     const u = mockU({ me, objectStore: store });
-    u.here = { id: "room-99", contents: [], broadcast: () => {} } as any;
+    (u as unknown as { here: Record<string, unknown> }).here = {
+      id: "room-99",
+      contents: [],
+      broadcast: () => {},
+    };
     u.cmd.args = ["add", "rope"]; await gearExec(u);
+    u._sent.length = 0;
     u.cmd.args = ["drop", "1"]; await gearExec(u);
-    const afterDrop = await inventoryItems(u, ownerId);
-    assertEquals(afterDrop.length, 0);
-
-    const ownerId2 = "player-gear-5";
-    const me2 = mockPlayer({ id: ownerId2, state: { cofd: defaultSheet() } });
-    const u2 = mockU({ me: me2, objectStore: store });
-    u2.here = u.here;
-    u2.cmd.args = ["pickup", "rope"]; await gearExec(u2);
-    const afterPickup = await inventoryItems(u2, ownerId2);
-    assertEquals(afterPickup.length, 1);
-    assertEquals(itemData(afterPickup[0])?.key, "rope");
+    assertStringIncludes(u._sent.join("\n"), "Unknown +gear switch");
   });
 });

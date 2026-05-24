@@ -18,8 +18,15 @@ import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { type CofdSheet, defaultSheet } from "../stats/index.ts";
 import { computeDefense } from "../combat/pools.ts";
 import { applyAttackDamage } from "../combat/damage.ts";
-import { getEncounterForRoom, applyDefense } from "../combat/encounter.ts";
+import {
+  getEncounterForRoom,
+  applyDefense,
+  setParticipantGrappleState,
+  clearParticipantGrappleState,
+} from "../combat/encounter.ts";
 import { executeRoll } from "../roller/index.ts";
+import { unequipItem, equippedWeaponEntry } from "../equipment/index.ts";
+import { addTilt, removeTilt } from "../subsystems/tilts.ts";
 
 /** Grapple state stored on participant sheet under state.cofd_grapple. */
 export interface GrappleState {
@@ -27,6 +34,10 @@ export interface GrappleState {
   grappleWith: string | null;
   /** True when this character is the one who initiated / holds the grapple. */
   isHolder: boolean;
+  hasHold?: boolean;
+  hasControl?: boolean;
+  isRestrained?: boolean;
+  isUsingAsCover?: boolean;
 }
 
 const VALID_MOVES = [
@@ -114,7 +125,7 @@ export async function grappleExec(u: IUrsamuSDK) {
     const opponent = await u.util.target(u.me, opponentId, true);
     if (!opponent) {
       u.send("Your grapple opponent is no longer here.");
-      await u.db.modify(u.me.id, "$set", { "state.cofd_grapple": { grappleWith: null, isHolder: false } });
+      await u.db.modify(u.me.id, "$set", { "data.cofd_grapple": { grappleWith: null, isHolder: false } });
       return;
     }
 
@@ -124,94 +135,150 @@ export async function grappleExec(u: IUrsamuSDK) {
       return;
     }
 
-    const oppSheet: CofdSheet = (opponent.state?.cofd as CofdSheet) ?? defaultSheet();
+    const oppSheet: CofdSheet =
+      (opponent.state?.cofd as CofdSheet) ?? defaultSheet();
+
+    const myParticipant = encounter.participants.find(
+      (p) => p.actorId === u.me.id,
+    );
+
+    // Prerequisite checks before roll:
+    if (move === "restrain") {
+      if (!myParticipant?.hasHold) {
+        u.send("You must establish a Hold before you can Restrain.");
+        return;
+      }
+    }
+    if (move === "disarm") {
+      if (!myParticipant?.hasControl) {
+        u.send("You must control the opponent's weapon before you can Disarm.");
+        return;
+      }
+    }
+
+    // Contested Strength + Brawl vs Strength + Brawl roll
+    const myPool = attr(mySheet, "strength") + skill(mySheet, "brawl");
+    const oppPool = attr(oppSheet, "strength") + skill(oppSheet, "brawl");
+    const myRoll = executeRoll(myPool);
+    const oppRoll = executeRoll(oppPool);
+    const successes = myRoll.successes;
+    const oppSuccesses = oppRoll.successes;
+    const netSuccesses = successes - oppSuccesses;
+    const moveSucceeds = netSuccesses > 0;
+
+    if (!moveSucceeds) {
+      u.broadcast(
+        `%cyGRAPPLE>>%cn ${u.me.name ?? "?"} attempts /${move} on ${opponent.name ?? "?"} but fails (${successes} vs ${oppSuccesses}).`
+      );
+      await applyDefense(encounter.id, opponent.id);
+      return;
+    }
 
     switch (move) {
-      case "hold":
-        u.broadcast(`%cy${u.me.name ?? "Unknown"} holds ${opponent.name ?? "Unknown"} in a grapple.%cn`);
+      case "hold": {
+        await setParticipantGrappleState(encounter.id, u.me.id, { hasHold: true });
+        await setParticipantGrappleState(encounter.id, opponent.id, { hasHold: true });
+        await u.db.modify(u.me.id, "$set", { "data.cofd_grapple": { ...grappleState, hasHold: true } });
+        const oppGrapple = (opponent.state?.cofd_grapple as GrappleState | undefined) ?? { grappleWith: u.me.id, isHolder: false };
+        await u.db.modify(opponent.id, "$set", { "data.cofd_grapple": { ...oppGrapple, hasHold: true } });
+
+        u.broadcast(
+          `%cyGRAPPLE>>%cn ${u.me.name ?? "Unknown"} holds ${opponent.name ?? "Unknown"} in a grapple! (${successes} vs ${oppSuccesses})`
+        );
         break;
+      }
 
       case "damage": {
-        // Str+Brawl, bashing, no Defense subtraction (already grappling).
-        const pool = attr(mySheet, "strength") + skill(mySheet, "brawl");
-        const result = executeRoll(pool);
-        const hits = result.successes;
-        const armorId = oppSheet.equipment?.equippedArmor ?? null;
-        // No armor lookup needed for grapple damage (attacker bypasses armor in RAW
-        // for improvised damage -- simplified: apply with 0 armor).
-        const dmg = applyAttackDamage(oppSheet, hits, "bashing", 0, 0, false);
+        let wpnMod = 0;
+        if (myParticipant?.hasControl) {
+          const myWpnId = mySheet.equipment?.equippedWeapon ?? null;
+          const oppWpnId = oppSheet.equipment?.equippedWeapon ?? null;
+          const myWpn = await equippedWeaponEntry(u, myWpnId);
+          const oppWpn = await equippedWeaponEntry(u, oppWpnId);
+          wpnMod = Math.max(
+            myWpn?.entry?.damage ?? 0,
+            oppWpn?.entry?.damage ?? 0,
+          );
+        }
+        const netDmgAmount = netSuccesses + wpnMod;
+        const dmg = applyAttackDamage(oppSheet, netDmgAmount, "bashing", 0, 0, false);
         if (dmg.netDamage > 0) {
-          await u.db.modify(opponent.id, "$set", { "state.cofd": dmg.sheet });
+          await u.db.modify(opponent.id, "$set", { "data.cofd": dmg.sheet });
         }
         u.broadcast(
           `%cyGRAPPLE>>%cn ${u.me.name ?? "?"} damages ${opponent.name ?? "?"}: ` +
-            `${hits} success${hits === 1 ? "" : "es"}, ${dmg.netDamage} bashing.`,
+            `${netSuccesses} net success${netSuccesses === 1 ? "" : "es"} (wpn +${wpnMod}), ${dmg.netDamage} bashing.`
         );
         if (dmg.beatenDown) u.broadcast(`%cr${opponent.name ?? "?"} is Beaten Down!%cn`);
-        void armorId; // suppress unused warning
         break;
       }
 
       case "break-free": {
-        // Str+Brawl; if successes >= holder's Str+Brawl: grapple ends.
-        const pool = attr(mySheet, "strength") + skill(mySheet, "brawl");
-        const result = executeRoll(pool);
-        const holderPool = attr(oppSheet, "strength") + skill(oppSheet, "brawl");
-        const freed = result.successes >= holderPool;
-        if (freed) {
-          await u.db.modify(u.me.id, "$set", { "state.cofd_grapple": { grappleWith: null, isHolder: false } });
-          await u.db.modify(opponent.id, "$set", { "state.cofd_grapple": { grappleWith: null, isHolder: false } });
-          u.broadcast(`%cy${u.me.name ?? "?"} breaks free from ${opponent.name ?? "?"}!%cn`);
-        } else {
-          u.broadcast(`%cy${u.me.name ?? "?"} fails to break free (${result.successes} vs ${holderPool}).%cn`);
+        await clearParticipantGrappleState(encounter.id, u.me.id);
+        await clearParticipantGrappleState(encounter.id, opponent.id);
+        await u.db.modify(u.me.id, "$set", { "data.cofd_grapple": { grappleWith: null, isHolder: false } });
+        await u.db.modify(opponent.id, "$set", { "data.cofd_grapple": { grappleWith: null, isHolder: false } });
+
+        if (oppSheet.tilts?.some((t) => t.key === "immobilized")) {
+          const nextOppSheet = removeTilt(oppSheet, "immobilized");
+          await u.db.modify(opponent.id, "$set", { "data.cofd": nextOppSheet });
         }
+        if (mySheet.tilts?.some((t) => t.key === "immobilized")) {
+          const nextMySheet = removeTilt(mySheet, "immobilized");
+          await u.db.modify(u.me.id, "$set", { "data.cofd": nextMySheet });
+        }
+
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} breaks free from ${opponent.name ?? "?"}! (${successes} vs ${oppSuccesses})`);
         break;
       }
 
       case "restrain": {
-        const pool = attr(mySheet, "strength") + skill(mySheet, "brawl");
-        const result = executeRoll(pool);
-        const oppDef = computeDefense(oppSheet);
-        if (result.successes > oppDef) {
-          u.broadcast(`%cy${u.me.name ?? "?"} fully restrains ${opponent.name ?? "?"}!%cn`);
-        } else {
-          u.broadcast(`%cy${u.me.name ?? "?"} struggles to restrain ${opponent.name ?? "?"} but fails.%cn`);
-        }
+        await setParticipantGrappleState(encounter.id, opponent.id, { isRestrained: true });
+        const oppGrapple = (opponent.state?.cofd_grapple as GrappleState | undefined) ?? { grappleWith: u.me.id, isHolder: false };
+        await u.db.modify(opponent.id, "$set", { "data.cofd_grapple": { ...oppGrapple, isRestrained: true } });
+
+        const oppSheetWithTilt = addTilt(oppSheet, "immobilized");
+        await u.db.modify(opponent.id, "$set", { "data.cofd": oppSheetWithTilt });
+
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} fully restrains ${opponent.name ?? "?"}! (${successes} vs ${oppSuccesses})`);
         break;
       }
 
       case "disarm": {
-        const pool = attr(mySheet, "strength") + skill(mySheet, "brawl");
-        const result = executeRoll(pool);
-        const oppDef = computeDefense(oppSheet);
-        if (result.successes > oppDef) {
-          u.broadcast(`%cy${u.me.name ?? "?"} disarms ${opponent.name ?? "?"}!%cn`);
-          // ST-level effect: actual item manipulation out of scope here.
-        } else {
-          u.broadcast(`%cy${u.me.name ?? "?"} attempts to disarm ${opponent.name ?? "?"} but fails.%cn`);
+        const oppWeaponId = oppSheet.equipment?.equippedWeapon;
+        if (oppWeaponId) {
+          await unequipItem(u, oppWeaponId);
+          const nextOppSheet = {
+            ...oppSheet,
+            equipment: {
+              ...oppSheet.equipment,
+              equippedWeapon: null,
+            },
+          };
+          await u.db.modify(opponent.id, "$set", { "data.cofd": nextOppSheet });
         }
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} disarms ${opponent.name ?? "?"}! (${successes} vs ${oppSuccesses})`);
         break;
       }
 
       case "drop-prone": {
-        u.broadcast(`%cy${u.me.name ?? "?"} drags ${opponent.name ?? "?"} to the ground!%cn Both are now prone.%cn`);
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} drags ${opponent.name ?? "?"} to the ground! Both are now prone. (${successes} vs ${oppSuccesses})`);
         break;
       }
 
       case "control-weapon": {
-        const pool = attr(mySheet, "strength") + skill(mySheet, "brawl");
-        const result = executeRoll(pool);
-        const oppDef = computeDefense(oppSheet);
-        if (result.successes > oppDef) {
-          u.broadcast(`%cy${u.me.name ?? "?"} controls ${opponent.name ?? "?"}'s weapon!%cn`);
-        } else {
-          u.broadcast(`%cy${u.me.name ?? "?"} fails to control ${opponent.name ?? "?"}'s weapon.%cn`);
-        }
+        await setParticipantGrappleState(encounter.id, u.me.id, { hasControl: true });
+        await u.db.modify(u.me.id, "$set", { "data.cofd_grapple": { ...grappleState, hasControl: true } });
+
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} controls ${opponent.name ?? "?"}'s weapon! (${successes} vs ${oppSuccesses})`);
         break;
       }
 
       case "take-cover": {
-        u.broadcast(`%cy${u.me.name ?? "?"} uses ${opponent.name ?? "?"} as cover!%cn`);
+        await setParticipantGrappleState(encounter.id, u.me.id, { isUsingAsCover: true });
+        await u.db.modify(u.me.id, "$set", { "data.cofd_grapple": { ...grappleState, isUsingAsCover: true } });
+
+        u.broadcast(`%cyGRAPPLE>>%cn ${u.me.name ?? "?"} uses ${opponent.name ?? "?"} as cover! (${successes} vs ${oppSuccesses})`);
         break;
       }
     }
@@ -257,10 +324,10 @@ export async function grappleExec(u: IUrsamuSDK) {
   if (success) {
     // Mark both participants as grappling each other.
     await u.db.modify(u.me.id, "$set", {
-      "state.cofd_grapple": { grappleWith: target.id, isHolder: true },
+      "data.cofd_grapple": { grappleWith: target.id, isHolder: true },
     });
     await u.db.modify(target.id, "$set", {
-      "state.cofd_grapple": { grappleWith: u.me.id, isHolder: false },
+      "data.cofd_grapple": { grappleWith: u.me.id, isHolder: false },
     });
   }
 

@@ -33,7 +33,7 @@ const SKIP = new Set([
 ]);
 
 // Merit categories by keyword — rough heuristic
-const CATEGORY_MAP: Record<string, string> = {
+const _CATEGORY_MAP: Record<string, string> = {
   "Mental": "Mental",
   "Physical": "Physical",
   "Social": "Social",

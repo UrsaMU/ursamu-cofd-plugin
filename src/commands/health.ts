@@ -9,7 +9,6 @@ import {
   type DamageType,
 } from "../health/index.ts";
 import {
-  defaultSheet,
   refreshAdvantages,
   type CofdSheet,
   type HealthTrack,

@@ -48,13 +48,46 @@ import {
   setMoved,
   setSurrendered,
 } from "../combat/encounter.ts";
+import { getCoverDurability } from "../combat/types.ts";
 import { executeRoll } from "../roller/index.ts";
 import {
+  damageItem,
+  displayName,
   equippedWeaponEntry,
   equippedArmorEntry,
   fireShots,
+  isCofdItem,
+  itemData,
   parseWeaponTags,
 } from "../equipment/index.ts";
+
+/**
+ * Pass 2: callable entry point used by the AI walker so an NPC can attack
+ * without going through MUSH command parsing. Inputs:
+ *   - argString: "<target>" or "<target>/switch1/switch2..."
+ * The function mutates u.cmd.args, defers to attackExec, then restores the
+ * original args. Safe for synthetic NPC SDKs that proxy `send` to broadcast.
+ */
+export async function executeAttack(
+  u: IUrsamuSDK,
+  argString: string,
+): Promise<void> {
+  // deno-lint-ignore no-explicit-any
+  const orig = (u as any).cmd;
+  // deno-lint-ignore no-explicit-any
+  (u as any).cmd = {
+    name: "+attack",
+    original: `+attack ${argString}`,
+    args: ["", argString],
+    switches: [],
+  };
+  try {
+    await attackExec(u);
+  } finally {
+    // deno-lint-ignore no-explicit-any
+    (u as any).cmd = orig;
+  }
+}
 
 /** Helper: parse an integer from a switch value string, clamped to range. */
 function parseIntSwitch(val: string | undefined, min: number, max: number, def: number): number {
@@ -104,6 +137,26 @@ export async function attackExec(u: IUrsamuSDK) {
   targetName = u.util.stripSubs(targetName).trim();
   if (!targetName) {
     u.send("Usage: +attack <target>[/<switches>]");
+    return;
+  }
+
+  // ---- Object-target soak path ---------------------------------------
+  // If the target is a CoFD item (not a PC), apply attacker pool vs item
+  // Durability and chip Structure with damageItem(). Skip the PC-vs-PC flow.
+  const earlyTarget = await u.util.target(u.me, targetName, true);
+  if (earlyTarget && isCofdItem(earlyTarget)) {
+    // Scope: item must be on the floor of this room, or carried by someone
+    // currently in this room. No cross-room reach.
+    const myRoomId = u.here?.id;
+    const itemLoc = (earlyTarget as { location?: string }).location;
+    const onFloor = !!myRoomId && itemLoc === myRoomId;
+    const occupants = (u.here?.contents ?? []) as Array<{ id: string }>;
+    const carriedHere = !!itemLoc && occupants.some((o) => o && o.id === itemLoc);
+    if (!onFloor && !carriedHere) {
+      u.send("You cannot reach that from here.");
+      return;
+    }
+    await attackObject(u, earlyTarget);
     return;
   }
 
@@ -366,28 +419,56 @@ export async function attackExec(u: IUrsamuSDK) {
   const damageType: "bashing" | "lethal" = isFirearm ? "lethal" : "bashing";
 
   for (const target of targets) {
-    const targetSheet: CofdSheet = (target.state?.cofd as CofdSheet) ?? defaultSheet();
+    let finalTarget = target;
+    const tp = encounter.participants.find((p) => p.actorId === target.id);
+    let finalTp = tp;
+
+    // Take Cover redirection: ranged attacks made against the holder automatically hit the victim.
+    const targetGrapple = target.state?.cofd_grapple as { grappleWith: string | null } | undefined;
+    const partnerId = targetGrapple?.grappleWith;
+    if (tp?.isUsingAsCover && partnerId && (poolType === "ranged" || poolType === "thrown")) {
+      const partner = await u.util.target(u.me, partnerId, true);
+      if (partner) {
+        finalTarget = partner;
+        finalTp = encounter.participants.find((p) => p.actorId === partner.id);
+        u.broadcast(
+          `%cyCOVER>>%cn ${target.name ?? "Unknown"} uses ${partner.name ?? "Unknown"} as a human shield! The attack is redirected!`
+        );
+      }
+    }
+
+    const targetSheet: CofdSheet = (finalTarget.state?.cofd as CofdSheet) ?? defaultSheet();
     let targetDefense = computeDefense(targetSheet);
 
     // Applied defense from prior attacks this round.
-    const tp = encounter.participants.find((p) => p.actorId === target.id);
-    if (tp) targetDefense = Math.max(0, targetDefense - tp.appliedDefense);
+    if (finalTp) targetDefense = Math.max(0, targetDefense - finalTp.appliedDefense);
 
     let dodging = false;
-    if (tp?.isDodging) {
+    let dodgeSuccesses = 0;
+    let dodgePool = 0;
+
+    const finalTargetGrapple = finalTarget.state?.cofd_grapple as { grappleWith: string | null } | undefined;
+    const finalPartnerId = finalTargetGrapple?.grappleWith;
+    const finalPartnerParticipant = finalPartnerId ? encounter.participants.find((p) => p.actorId === finalPartnerId) : null;
+    const isPartnerHolding = finalPartnerParticipant?.hasHold === true;
+
+    if (finalTp?.surprised || finalTp?.isRestrained || finalTp?.hasHold || isPartnerHolding) {
+      targetDefense = 0;
+    } else if (finalTp?.isDodging) {
       dodging = true;
-      targetDefense = tp.appliedDefense > 0
-        ? 0
-        : computeDefense(targetSheet) * 2;
+      const baseDefense = Math.max(0, computeDefense(targetSheet) - finalTp.appliedDefense);
+      dodgePool = baseDefense * 2;
+      dodgeSuccesses = dodgePool > 0 ? executeRoll(dodgePool).successes : 0;
     }
 
     // Cover / concealment from declared participant state.
-    const rawCover = tp?.cover ?? 0;
+    const rawCover = tp ? getCoverDurability(tp) : 0;
     const rawConceal = tp?.concealment ?? 0;
     const targetCoverVal = rawCover > 0 ? rawCover : undefined;
     const targetConcealVal: 1 | 2 | 3 | undefined =
       rawConceal === 1 || rawConceal === 2 || rawConceal === 3 ? rawConceal : undefined;
 
+    const myConceal = myParticipant?.concealment ?? 0;
     const opts: AttackOptions = {
       pool: poolType,
       allOut,
@@ -397,6 +478,7 @@ export async function attackExec(u: IUrsamuSDK) {
       burstShort,
       burstMed,
       burstLong,
+      concealment: myConceal === 1 || myConceal === 2 || myConceal === 3 ? myConceal : undefined,
       targetCover: targetCoverVal,
       targetConcealment: targetConcealVal,
       targets: targets.length,
@@ -416,14 +498,16 @@ export async function attackExec(u: IUrsamuSDK) {
       reachDelta = Math.max(0, weaponTags.reach - targetReach);
     }
 
-    const built = buildPool(mySheet, poolType, opts, targetDefense, extraDice + reachDelta);
+    const built = buildPool(mySheet, poolType, opts, dodging ? 0 : targetDefense, extraDice + reachDelta);
     const finalPool = built.total;
     const result = executeRoll(Math.max(0, finalPool), { again: weaponTags.again });
 
+    const finalSuccesses = dodging ? Math.max(0, result.successes - dodgeSuccesses) : result.successes;
+
     const weaponDmgMod = weaponInfo?.entry?.damage ?? 0;
     // Heavy Hitter (3 dots, melee only): +1 raw hit when wielding melee.
-    const heavyHitter = result.successes > 0 ? heavyHitterBonus(mySheet, isFirearm) : 0;
-    const rawHits = result.successes + (result.successes > 0 ? weaponDmgMod : 0) + heavyHitter;
+    const heavyHitter = finalSuccesses > 0 ? heavyHitterBonus(mySheet, isFirearm) : 0;
+    const rawHits = finalSuccesses + (finalSuccesses > 0 ? weaponDmgMod : 0) + heavyHitter;
 
     const armorId = targetSheet.equipment?.equippedArmor ?? null;
     const targetArmor = await equippedArmorEntry(u, armorId);
@@ -438,7 +522,7 @@ export async function attackExec(u: IUrsamuSDK) {
     let unconscious = false;
     let appliedTilts: string[] = [];
 
-    if (result.successes > 0) {
+    if (finalSuccesses > 0) {
       const dmgResult = applyAttackDamage(
         targetSheet,
         effectiveHits,
@@ -453,7 +537,7 @@ export async function attackExec(u: IUrsamuSDK) {
       unconscious = dmgResult.unconscious;
 
       if (netDamage > 0) {
-        await u.db.modify(target.id, "$set", { "data.cofd": dmgResult.sheet });
+        await u.db.modify(finalTarget.id, "$set", { "data.cofd": dmgResult.sheet });
 
         const stamina = targetSheet.attributes?.stamina ?? 1;
         const size = targetSheet.advantages?.size ?? 5;
@@ -472,28 +556,28 @@ export async function attackExec(u: IUrsamuSDK) {
           for (const key of appliedTilts) {
             if (key !== "heart-strike") tiltSheet = addTilt(tiltSheet, key);
           }
-          await u.db.modify(target.id, "$set", { "data.cofd": tiltSheet });
+          await u.db.modify(finalTarget.id, "$set", { "data.cofd": tiltSheet });
         }
 
-        await applyDefense(encounter.id, target.id);
+        await applyDefense(encounter.id, finalTarget.id);
       }
     }
 
     // ---- Output (per target) ------------------------------------------
-    const targetName2 = target.name ?? "Unknown";
-    const hitWord = result.successes > 0 ? "hits" : "misses";
+    const targetName2 = finalTarget.name ?? "Unknown";
+    const hitWord = finalSuccesses > 0 ? "hits" : "misses";
     const poolDesc = `${built.formula}=${finalPool > 0 ? finalPool : "chance"}d`;
     const diceStr = result.rolls.join(" ");
     const dmgPart = netDamage > 0 ? ` ${netDamage} ${damageType}` : "";
-    const dodgeNote = dodging ? " (dodging)" : "";
+    const dodgeNote = dodging ? ` (dodging; active Dodge rolled ${dodgeSuccesses} success${dodgeSuccesses === 1 ? "" : "es"})` : "";
 
     u.broadcast(
       `%cyATTACK>>%cn ${attackerName} attacks ${targetName2}${dodgeNote}: ` +
-        `%cw${result.successes}%cn success${result.successes === 1 ? "" : "es"} ${hitWord}${dmgPart}.`,
+        `%cw${finalSuccesses}%cn success${finalSuccesses === 1 ? "" : "es"} ${hitWord}${dmgPart}.`,
     );
 
     u.send(
-      `%cgROLL DETAIL:%cn ${targetName2} ${poolDesc} (${diceStr})` +
+      `%cgROLL DETAIL:%cn ${attackerName} ${poolDesc} (${diceStr})` +
         (spentWp ? " [+3 WP]" : "") +
         (aimBankVal ? ` [+${aimBankVal} aim]` : "") +
         (targetCoverVal ? ` [cover -${targetCoverVal}]` : "") +
@@ -501,16 +585,16 @@ export async function attackExec(u: IUrsamuSDK) {
         (result.dramaticFailure ? " %crDRAMATIC FAILURE%cn" : ""),
     );
 
-    if (netDamage > 0 && target.id !== u.me.id) {
+    if (netDamage > 0 && finalTarget.id !== u.me.id) {
       u.send(
         `%cyINJURED:%cn ${attackerName} dealt ${netDamage} ${damageType} damage to you.`,
-        target.id,
+        finalTarget.id,
       );
     }
 
     if (beatenDown) {
       u.broadcast(`%cr${targetName2} is Beaten Down!%cn`);
-      await setBeatenDown(encounter.id, target.id, true);
+      await setBeatenDown(encounter.id, finalTarget.id, true);
     }
     if (unconscious) u.broadcast(`%cr${targetName2} is Incapacitated!%cn`);
     for (const tiltKey of appliedTilts) {
@@ -534,5 +618,45 @@ export async function attackExec(u: IUrsamuSDK) {
 
   if (weaponTags.slow) {
     u.send("%cyNote:%cn This weapon is Slow -- drawing or stowing it costs an instant action.");
+  }
+}
+
+/**
+ * Resolve an attack against an inert object (a CoFD item, not a player).
+ * Roll attacker's Strength + Brawl/Weaponry (or weapon class pool), subtract
+ * the item's Durability, and chip the remainder off Structure via
+ * damageItem(). Broken items report broken; otherwise show current hp.
+ */
+async function attackObject(u: IUrsamuSDK, target: IDBObj): Promise<void> {
+  const d = itemData(target);
+  if (!d) { u.send("That is not a damageable object."); return; }
+
+  // Use a simple Strength + Athletics pool against passive resistance of 0
+  // (no Defense from inert objects). Equipped weapons add their damage mod.
+  const mySheet: CofdSheet = (u.me.state?.cofd as CofdSheet) ?? defaultSheet();
+  const strength = (mySheet.attributes as Record<string, number>)?.strength ?? 1;
+  const athletics = (mySheet.skills as Record<string, number>)?.athletics ?? 0;
+  const weaponInfo = await equippedWeaponEntry(u, mySheet.equipment?.equippedWeapon ?? null);
+  const weaponMod = weaponInfo?.entry?.damage ?? 0;
+  const pool = Math.max(0, strength + athletics);
+  const result = executeRoll(pool);
+  const raw = result.successes + (result.successes > 0 ? weaponMod : 0);
+  const dur = d.durability ?? 0;
+  const damage = Math.max(0, raw - dur);
+
+  if (damage <= 0) {
+    u.send(`You strike %ch${displayName(target)}%cn but its armor holds (${result.successes} success${result.successes === 1 ? "" : "es"} vs Durability ${dur}).`);
+    return;
+  }
+
+  const dmgResult = await damageItem(u, target.id, damage);
+  const max = d.maxStructure ?? d.structure ?? 1;
+  if (dmgResult.broken) {
+    u.send(`You smash %ch${displayName(target)}%cn. It is %cr[broken]%cn.`);
+  } else {
+    u.send(`You shred %ch${displayName(target)}%cn for ${damage} damage. (hp ${dmgResult.newStructure}/${max})`);
+  }
+  if (dmgResult.autoUnequipped && u.here?.broadcast) {
+    u.here.broadcast(`${displayName(target)} breaks apart.`);
   }
 }

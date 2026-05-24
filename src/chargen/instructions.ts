@@ -36,7 +36,7 @@ function attrCell(label: string, val: number, w: number): string {
 }
 
 /** "Name(N)" cell, padded to w columns. */
-function skillCell(name: string, val: number, w: number): string {
+function _skillCell(name: string, val: number, w: number): string {
   const title = name.replace(/\b\w/g, (c) => c.toUpperCase());
   return ljust(`${title}(${val})`, w);
 }
@@ -63,7 +63,7 @@ function threeColumn(
 /**
  * Generates beautiful CLI instructions, current values, and progress meter.
  */
-export async function getStageInstructions(playerName: string, cgState: CofdCgState): Promise<string> {
+export async function getStageInstructions(_playerName: string, cgState: CofdCgState): Promise<string> {
   const stage = cgState.stage;
   const sheet = cgState.sheet;
   const tKey = sheet.template.toLowerCase().trim();
@@ -73,8 +73,22 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
   lines.push(await header(`CHARACTER CREATION -- STAGE ${stage}: ${getStageName(stage).toUpperCase()}`));
 
   // Progress Bar -- compact form keeps the line under 78 cols.
-  const steps = [1, 2, 3, 4, 5, 6].map(s => {
-    const name = getStageName(s).split(" ")[0];
+  const maxStage = tmpl.validPowers.length > 0 ? 7 : 6;
+  const stageLabels: Record<number, string> = {
+    1: "Concept",
+    2: "Template",
+    3: "Detail",
+    4: "Attrs",
+    5: "Skills",
+    6: "Merits",
+    7: "Powers",
+  };
+  const stagesList = [];
+  for (let s = 1; s <= maxStage; s++) {
+    stagesList.push(s);
+  }
+  const steps = stagesList.map(s => {
+    const name = stageLabels[s] ?? "Stage";
     return s === stage ? `%ch%cy[${name}]%cn` : `[${name}]`;
   }).join(" ");
   lines.push(`  %chProgress:%cn ${steps}`);
@@ -99,13 +113,13 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
 
     case 2:
       lines.push("  Choose your Supernatural Template. This dictates your character's nature.");
-      lines.push("  Supported templates: %chmortal%cn, %chvampire%cn, %chwerewolf%cn, %chmage%cn, %chchangeling%cn.");
+      lines.push("  Supported templates: %chmortal%cn, %chchangeling%cn.");
       lines.push("");
       lines.push(`    %ch%ccSelected:%cn ${sheet.template.toUpperCase()} (${tmpl.name})`);
       lines.push("");
       lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      lines.push("    +cg/set template=<name>  -- Set your template (e.g. vampire).");
+      lines.push("    +cg/set template=<name>  -- Set your template (e.g. changeling).");
       lines.push("    +cg/back                 -- Go back to stage 1.");
       lines.push("    +cg/next                 -- Advance to stage 3.");
       break;
@@ -179,7 +193,7 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       lines.push("  %chCommands:%cn");
       lines.push("    +cg/set <attribute>=<dots>  -- Set a rating (1 to 5).");
       lines.push("    +cg/back                   -- Go back to stage 3.");
-      lines.push("    +cg/next                   -- Validate allocations and advance to stage 5.");
+      lines.push("    +cg/next                   -- Validate and advance to stage 5.");
       break;
     }
 
@@ -215,36 +229,16 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
       lines.push("  %chCommands:%cn");
       lines.push("    +cg/set <skill>=<dots> -- Set a skill dot rating (0 to 5).");
       lines.push("    +cg/back               -- Go back to stage 4.");
-      lines.push("    +cg/next               -- Validate skill pools and advance to stage 6.");
+      lines.push("    +cg/next               -- Validate and advance to stage 6.");
       break;
     }
 
     case 6: {
-      lines.push("  Allocate starting powers and merits specific to your template and character.");
-      let startingDots = 0;
-      if (sheet.template === "vampire") startingDots = 3;
-      if (sheet.template === "werewolf") startingDots = 3;
-      if (sheet.template === "mage") startingDots = 6;
-      if (sheet.template === "changeling") startingDots = 3;
-
-      lines.push(`  %ch${startingDots}%cn starting power dots, %ch7%cn merit dots.`);
+      lines.push("  Allocate starting merits for your character.");
+      lines.push("  You must allocate exactly %ch7%cn merit dots.");
       lines.push("");
 
       const MW = 36;
-      if (tmpl.validPowers.length === 0) {
-        lines.push("  No supernatural powers required for Mortals.");
-        lines.push("");
-      } else {
-        const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
-        lines.push(`  %ch%ccPowers%cn (${allocatedPowers} / ${startingDots})`);
-        for (const p of tmpl.validPowers) {
-          const title = p.replace(/\b\w/g, c => c.toUpperCase());
-          const val = sheet.powers[p] || 0;
-          lines.push("  " + attrCell(title, val, MW));
-        }
-        lines.push("");
-      }
-
       const allocatedMerits = Object.keys(sheet.merits || {}).reduce((acc, m) => acc + (sheet.merits[m] || 0), 0);
       lines.push(`  %ch%ccMerits%cn (${allocatedMerits} / 7)`);
       const activeMeritsList = Object.keys(sheet.merits || {}).filter(m => (sheet.merits[m] || 0) > 0);
@@ -265,11 +259,39 @@ export async function getStageInstructions(playerName: string, cgState: CofdCgSt
 
       lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
-      if (tmpl.validPowers.length > 0) {
-        lines.push("    +cg/set <power>=<dots>  -- Allocate dots to a starting power.");
-      }
       lines.push("    +cg/set <merit>=<dots>  -- Allocate dots (empty = clear).");
       lines.push("    +cg/back                -- Go back to stage 5.");
+      if (maxStage === 6) {
+        lines.push("    +cg/submit              -- Final review and submit for approval.");
+      } else {
+        lines.push("    +cg/next                -- Validate and advance to stage 7.");
+      }
+      break;
+    }
+
+    case 7: {
+      const pName = tmpl.name === "Changeling: The Lost" ? "Contracts" : "Powers";
+      lines.push(`  Allocate starting ${pName.toLowerCase()} specific to your template.`);
+      let startingDots = 0;
+      if (sheet.template === "changeling") startingDots = 3;
+
+      lines.push(`  %ch${startingDots}%cn starting ${pName.toLowerCase()} dots.`);
+      lines.push("");
+
+      const MW = 36;
+      const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
+      lines.push(`  %ch%cc${pName}%cn (${allocatedPowers} / ${startingDots})`);
+      for (const p of tmpl.validPowers) {
+        const title = p.replace(/\b\w/g, c => c.toUpperCase());
+        const val = sheet.powers[p] || 0;
+        lines.push("  " + attrCell(title, val, MW));
+      }
+      lines.push("");
+
+      lines.push(await divider(""));
+      lines.push("  %chCommands:%cn");
+      lines.push(`    +cg/set <${tmpl.name === "Changeling: The Lost" ? "contract" : "power"}>=<dots>  -- Allocate dots.`);
+      lines.push("    +cg/back                -- Go back to stage 6.");
       lines.push("    +cg/submit              -- Final review and submit for approval.");
       break;
     }

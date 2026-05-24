@@ -283,6 +283,11 @@ export function buildModifiers(
     poolMod += concealmentPenalty(opts.targetConcealment);
   }
 
+  // Attacker concealment (return-fire penalty).
+  if (opts.concealment && opts.concealment > 1) {
+    poolMod -= (opts.concealment - 1);
+  }
+
   // Target prone: -2 to ranged attacks, +2 to melee.
   if (opts.targetProne) {
     const isRanged = opts.pool === "ranged";

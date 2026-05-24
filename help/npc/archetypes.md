@@ -19,4 +19,15 @@ gear. Default tier is listed in parentheses.
 Tier override:
   +npc/build Goon=thug/major   Promote a Thug to major tier.
 
-See also: npc, npc tiers, npc derived
+AI archetypes (drive NPC behavior in combat):
+  beshilu-swarmer       Rat-host. Flee under 25%, gang-up, revenge, weakest.
+  azlu-stalker          Spider-host. Ambush unrevealed, seek cover, isolate.
+  spirit-ridden-feral   Possessed mortal. Frenzy when damaged, target attacker.
+
+Set with:
+  +npc/ai <name>=<ai-archetype>
+
+Default for newly built NPCs is beshilu-swarmer. Override anytime.
+
+See also: npc, npc tiers, npc derived, turn
+

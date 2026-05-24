@@ -55,6 +55,9 @@ export async function addParticipant(
   const enc = await encounterDb.findOne({ id: encounterId } as Q);
   if (!enc) return null;
   if (enc.participants.some((p) => p.actorId === actor.id)) return enc;
+  // Pass 2: derive participant.kind from actor flags. NPC flag => "npc".
+  const flags = actor.flags as Set<string> | undefined;
+  const isNpc = !!(flags && typeof flags.has === "function" && flags.has("npc"));
   const updated: Encounter = {
     ...enc,
     participants: [
@@ -66,6 +69,7 @@ export async function addParticipant(
         appliedDefense: 0,
         isDodging: false,
         isOut: false,
+        kind: isNpc ? "npc" : "pc",
       },
     ],
   };
@@ -129,8 +133,8 @@ export async function rollInitiative(
       if (!actor) return { ...p, initiative: 0 };
 
       const sheet = actor.state?.cofd as CofdSheet | undefined;
-      const dex = sheet?.attributes?.Dexterity ?? 1;
-      const composure = sheet?.attributes?.Composure ?? 1;
+      const dex = sheet?.attributes?.dexterity ?? sheet?.attributes?.Dexterity ?? 1;
+      const composure = sheet?.attributes?.composure ?? sheet?.attributes?.Composure ?? 1;
 
       // Weapon initiative penalty: look up the equipped weapon in sheet.
       let weaponMod = 0;
@@ -191,6 +195,7 @@ export async function rollInitiative(
  */
 export async function advanceTurn(
   encounterId: string,
+  u?: IUrsamuSDK,
 ): Promise<Encounter | null> {
   const enc = await encounterDb.findOne({ id: encounterId } as Q);
   if (!enc || enc.status !== "active") return enc ?? null;
@@ -201,9 +206,6 @@ export async function advanceTurn(
   let nextIdx = enc.turnIdx + 1;
   let round = enc.round;
   let participants = enc.participants;
-
-  // Mark the actor whose turn is ending so anyone else can later inspect.
-  // (We don't clear their per-turn flags here -- they're reset at round wrap.)
 
   // Skip past any delayed actors (held action -- they re-enter via reclaim).
   let safety = count + 1;
@@ -235,6 +237,69 @@ export async function advanceTurn(
     participants = participants.map((p, i) =>
       i === nextIdx ? { ...p, actionUsed: false, ran: false } : p
     );
+  }
+
+  // Loop to handle surprise skip
+  let surpriseSafety = count * 2;
+  while (participants[nextIdx] && participants[nextIdx].surprised && surpriseSafety-- > 0) {
+    const surprisedName = participants[nextIdx].name;
+    if (u && typeof u.broadcast === "function") {
+      u.broadcast(`%cy${surprisedName} is surprised and loses their turn!%cn`);
+    }
+    // Mark actionUsed: true, ran: false, surprised: false on the surprised participant
+    participants = participants.map((p, i) =>
+      i === nextIdx ? { ...p, actionUsed: true, ran: false, surprised: false } : p
+    );
+
+    // Now advance past them!
+    nextIdx += 1;
+    if (nextIdx >= count) {
+      nextIdx = 0;
+      round += 1;
+      participants = participants.map((p) => ({
+        ...p,
+        appliedDefense: 0,
+        isDodging: false,
+        pinnedBy: undefined,
+        movedThisRound: false,
+        actionUsed: false,
+        delayed: false,
+        ran: false,
+      }));
+    } else {
+      participants = participants.map((p, i) =>
+        i === nextIdx ? { ...p, actionUsed: false, ran: false } : p
+      );
+    }
+
+    // Skip delayed actors after advancing
+    let delaySafety = count + 1;
+    while (
+      delaySafety-- > 0 &&
+      nextIdx < count &&
+      participants[nextIdx] &&
+      participants[nextIdx].delayed
+    ) {
+      nextIdx += 1;
+    }
+    if (nextIdx >= count) {
+      nextIdx = 0;
+      round += 1;
+      participants = participants.map((p) => ({
+        ...p,
+        appliedDefense: 0,
+        isDodging: false,
+        pinnedBy: undefined,
+        movedThisRound: false,
+        actionUsed: false,
+        delayed: false,
+        ran: false,
+      }));
+    } else {
+      participants = participants.map((p, i) =>
+        i === nextIdx ? { ...p, actionUsed: false, ran: false } : p
+      );
+    }
   }
 
   const updated: Encounter = { ...enc, participants, round, turnIdx: nextIdx };
@@ -364,6 +429,66 @@ export async function setBeatenDown(
   if (!enc) return null;
   const participants = enc.participants.map((p) =>
     p.actorId === actorId ? { ...p, beatenDown: value } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set or clear grapple state flags on a participant in the encounter. */
+export async function setParticipantGrappleState(
+  encounterId: string,
+  actorId: string,
+  state: {
+    hasHold?: boolean;
+    hasControl?: boolean;
+    isRestrained?: boolean;
+    isUsingAsCover?: boolean;
+  },
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, ...state } : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Clear all grapple state flags on a participant in the encounter. */
+export async function clearParticipantGrappleState(
+  encounterId: string,
+  actorId: string,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId
+      ? {
+          ...p,
+          hasHold: undefined,
+          hasControl: undefined,
+          isRestrained: undefined,
+          isUsingAsCover: undefined,
+        }
+      : p
+  );
+  const updated: Encounter = { ...enc, participants };
+  await encounterDb.update({ id: encounterId } as Q, updated);
+  return updated;
+}
+
+/** Set or clear the surprised flag for a participant. */
+export async function setSurprised(
+  encounterId: string,
+  actorId: string,
+  value: boolean,
+): Promise<Encounter | null> {
+  const enc = await encounterDb.findOne({ id: encounterId } as Q);
+  if (!enc) return null;
+  const participants = enc.participants.map((p) =>
+    p.actorId === actorId ? { ...p, surprised: value } : p
   );
   const updated: Encounter = { ...enc, participants };
   await encounterDb.update({ id: encounterId } as Q, updated);

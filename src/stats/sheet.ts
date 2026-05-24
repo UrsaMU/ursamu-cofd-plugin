@@ -137,6 +137,7 @@ function emptyHealth(): HealthTrack {
 /**
  * Migrates older sheets to the new template-driven structure safely with zero data loss.
  */
+// deno-lint-ignore no-explicit-any
 export function migrateSheet(sheet: any): CofdSheet {
   const template = sheet.template || "mortal";
   const moralityValue = typeof sheet.moralityValue === "number"

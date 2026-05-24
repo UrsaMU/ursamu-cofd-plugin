@@ -4,8 +4,8 @@
 // canEdit guard on /impression, stripSubs sanitisation, and the
 // happy-path /start -> panel render.
 
-import { assert, assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { socialExec } from "../src/commands/social.ts";
 import { defaultSheet } from "../src/stats/index.ts";

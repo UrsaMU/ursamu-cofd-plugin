@@ -15,6 +15,20 @@ export interface NpcRecord {
   roomId: string | null;
   createdAt: number;
   createdBy: string;
+  /** Pass 2: AI archetype key (see src/combat/ai). */
+  aiArchetype?: string;
+  /** Pass 2: optional loot table override key. */
+  lootTable?: string;
+}
+
+/** Pass 2: write a fresh aiArchetype to an existing directory record. */
+export async function updateNpcAiArchetype(
+  id: string,
+  aiArchetype: string,
+): Promise<void> {
+  const rec = (await npcDb.findOne({ id } as Q)) as NpcRecord | null;
+  if (!rec) return;
+  await npcDb.update({ id } as Q, { ...rec, aiArchetype });
 }
 
 // deno-lint-ignore no-explicit-any

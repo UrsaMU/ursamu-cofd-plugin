@@ -1,6 +1,6 @@
 // Fast Reflexes (1-3) adds dots to the Initiative pool.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { fastReflexesBonus } from "../src/combat/modifiers.ts";
 import { defaultSheet } from "../src/stats/sheet.ts";
 

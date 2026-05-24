@@ -5,8 +5,8 @@
 //   - M2: TOCTOU window between "is this still combat?" and the location write
 //         is closed by a recheck; if combat ended in between, no snap-back
 
-import { assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import { enforceMoveLock, type MoveLockActor, type MoveLockDeps } from "../src/combat/move_lock.ts";
 import type { Encounter } from "../src/combat/types.ts";

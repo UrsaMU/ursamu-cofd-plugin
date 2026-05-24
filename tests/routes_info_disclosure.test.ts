@@ -2,8 +2,8 @@
 // non-staff callers. A simple {ok: true} body confirms the route is live
 // without revealing which plugin handles it.
 
-import { assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import { routeHandler } from "../routes.ts";
 

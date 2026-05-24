@@ -12,7 +12,7 @@ import {
   MAX_ASPIRATIONS,
   removeAspiration,
 } from "../subsystems/aspirations.ts";
-import { type CofdSheet } from "../stats/index.ts";
+import type { CofdSheet } from "../stats/index.ts";
 
 /** Pull off a trailing " for <player>" suffix. */
 function splitForTarget(rest: string): { body: string; target: string } {

@@ -12,6 +12,7 @@
 // Reads u.me.state.cofd; writes "data.cofd" for Willpower spend.
 
 import { divider, type IDBObj, type IUrsamuSDK } from "@ursamu/ursamu";
+import { jobs, type IJobComment } from "@ursamu/jobs-plugin";
 import { defaultSheet, type CofdSheet } from "../stats/index.ts";
 import { parseRollExpression, executeRoll, type AgainThreshold } from "../roller/index.ts";
 import {
@@ -62,11 +63,42 @@ function statusGlyph(s: ExtendedAction["status"]): string {
   }
 }
 
-function summarize(a: ExtendedAction): string {
+export function summarize(a: ExtendedAction): string {
   const pct = `${a.accumulated}/${a.target}`;
   const att = `${a.attempts}/${a.maxRolls}`;
-  return `  [${a.id}] ${statusGlyph(a.status)}  ${a.ownerName}  ${a.pool} ` +
-    `accum ${pct} attempts ${att} - ${a.description}`;
+
+  const idPart = `[${a.id}]`;
+  const statusPart = statusGlyph(a.status);
+  const statusVisLen = a.status.length;
+
+  const l1Prefix = `  ${idPart} ${statusPart}  `;
+  const l1PrefixVisLen = 2 + idPart.length + 1 + statusVisLen + 2;
+
+  let owner = a.ownerName;
+  let pool = a.pool;
+  const remaining = 78 - l1PrefixVisLen - 2;
+
+  if (owner.length + pool.length > remaining) {
+    const maxOwner = Math.min(owner.length, 12);
+    if (owner.length > maxOwner) {
+      owner = owner.slice(0, maxOwner - 3) + "...";
+    }
+    const maxPool = remaining - owner.length;
+    if (pool.length > maxPool) {
+      pool = pool.slice(0, maxPool - 3) + "...";
+    }
+  }
+  const line1 = `${l1Prefix}${owner}  ${pool}`;
+
+  const prefix = `    accum ${pct}  attempts ${att} - `;
+  const maxDescLen = 78 - prefix.length;
+  let desc = a.description;
+  if (desc.length > maxDescLen) {
+    desc = desc.slice(0, maxDescLen - 3) + "...";
+  }
+  const line2 = `${prefix}${desc}`;
+
+  return `${line1}\n${line2}`;
 }
 
 function detail(a: ExtendedAction): string[] {
@@ -227,13 +259,26 @@ async function extRoll(u: IUrsamuSDK, swList: string[], rest: string): Promise<v
   let wantWp = false;
   let rote = false;
   let again: AgainThreshold = 10;
+  let postToJob: number | null = null;
   for (const sw of swList) {
-    if (sw === "wp" || sw === "willpower") wantWp = true;
-    else if (sw === "rote") rote = true;
-    else if (sw === "9again" || sw === "9-again") again = 9;
-    else if (sw === "8again" || sw === "8-again") again = 8;
-    else if (sw === "roll") { /* primary */ }
-    else {
+    const jobMatch = sw.match(/^job(?:[=-]?(\d+))?$/i);
+    if (jobMatch) {
+      if (!jobMatch[1]) {
+        u.send("Please specify a job number: /job=<number>");
+        return;
+      }
+      postToJob = parseInt(jobMatch[1], 10);
+    } else if (sw === "wp" || sw === "willpower") {
+      wantWp = true;
+    } else if (sw === "rote") {
+      rote = true;
+    } else if (sw === "9again" || sw === "9-again") {
+      again = 9;
+    } else if (sw === "8again" || sw === "8-again") {
+      again = 8;
+    } else if (sw === "roll") {
+      /* primary */
+    } else {
       u.send(`Unknown switch '/${sw}'. Use /wp, /rote, /9again, /8again.`);
       return;
     }
@@ -247,6 +292,23 @@ async function extRoll(u: IUrsamuSDK, swList: string[], rest: string): Promise<v
   if (action.status !== "active") {
     u.send(`Action [${action.id}] is ${action.status}. Cannot roll.`);
     return;
+  }
+
+  if (postToJob !== null) {
+    const job = await jobs.findOne({ number: postToJob });
+    if (!job) {
+      u.send(`Job #${postToJob} not found.`);
+      return;
+    }
+    if (job.status !== "new" && job.status !== "open") {
+      u.send(`Job #${postToJob} is closed.`);
+      return;
+    }
+    const isOwner = job.submittedBy === u.me.id;
+    if (!isOwner && !isStaff(u.me)) {
+      u.send("Permission denied. You cannot post to that job.");
+      return;
+    }
   }
 
   // Extra modifier from rest (integer like "+1" or "-2" or "1").
@@ -330,6 +392,43 @@ async function extRoll(u: IUrsamuSDK, swList: string[], rest: string): Promise<v
   }
 
   await panel(u, lines);
+
+  if (postToJob !== null) {
+    const job = await jobs.findOne({ number: postToJob });
+    if (job) {
+      const outcomeTag = result.exceptional
+        ? "exceptional"
+        : result.dramaticFailure
+          ? "dramatic failure"
+          : result.successes > 0
+            ? "hit"
+            : "miss";
+
+      const commentText = [
+        `Extended Roll: ${action.description}`,
+        `Attempt #${outcome.action.attempts}: ${finalPool}d (${result.rolls.join(" ")}) -> ${result.successes} succ (${outcomeTag})${modStr ? " " + modStr : ""}`,
+        `Progress: ${outcome.action.accumulated}/${outcome.action.target} accumulated, ${outcome.action.attempts}/${outcome.action.maxRolls} attempts.`,
+        outcome.resolved
+          ? `RESOLVED: ${outcome.reason === "success" ? "SUCCEEDED" : "FAILED"}`
+          : "",
+      ].filter(Boolean).join("\n");
+
+      const comment: IJobComment = {
+        authorId: u.me.id,
+        authorName: u.util.displayName(u.me, u.me),
+        text: commentText,
+        timestamp: Date.now(),
+        staffOnly: false,
+      };
+
+      await jobs.update({ id: job.id }, {
+        ...job,
+        comments: [...job.comments, comment],
+        updatedAt: Date.now(),
+      });
+      u.send(`Posted roll results to Job #${postToJob}.`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

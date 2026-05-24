@@ -10,7 +10,7 @@ import {
   removeTilt,
   TILTS,
 } from "../subsystems/tilts.ts";
-import { type CofdSheet } from "../stats/index.ts";
+import type { CofdSheet } from "../stats/index.ts";
 
 function splitForTarget(rest: string): { body: string; target: string } {
   const idx = rest.toLowerCase().lastIndexOf(" for ");

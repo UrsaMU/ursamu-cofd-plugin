@@ -1,6 +1,6 @@
 // Tests for attack pool builder and damage resolution.
 
-import { assertEquals, assert } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { buildPool, computeDefense, dodgePool } from "../src/combat/pools.ts";
 import { applyAttackDamage } from "../src/combat/damage.ts";
 import { defaultSheet } from "../src/stats/index.ts";
@@ -140,21 +140,24 @@ Deno.test("armor absorbs everything -> netDamage 0", OPTS, () => {
 // Beaten down / unconscious
 // ---------------------------------------------------------------------------
 
-Deno.test("beaten down when bashing fills track", OPTS, () => {
+Deno.test("beaten down when bashing strictly exceeds stamina", OPTS, () => {
   // Default sheet: stamina(1) + size(5) = max 6.
-  // Pre-fill 5 bashing, then add 1 more.
-  const sheet = makeSheet();
-  sheet.health = { bashing: 5, lethal: 0, aggravated: 0 };
-  const res = applyAttackDamage(sheet, 1, "bashing", 0, 0, false);
+  const sheet = makeSheet(); // stamina = 1
+  const res = applyAttackDamage(sheet, 2, "bashing", 0, 0, false); // 2 bashing > 1 stamina
   assertEquals(res.beatenDown, true);
   assertEquals(res.unconscious, false);
 });
 
-Deno.test("beaten down does NOT trigger when track was already full", OPTS, () => {
-  const sheet = makeSheet();
-  sheet.health = { bashing: 6, lethal: 0, aggravated: 0 }; // already full
-  const res = applyAttackDamage(sheet, 2, "bashing", 0, 0, false);
+Deno.test("beaten down does NOT trigger when bashing damage <= stamina", OPTS, () => {
+  const sheet = makeSheet(); // stamina = 1
+  const res = applyAttackDamage(sheet, 1, "bashing", 0, 0, false); // 1 bashing <= 1 stamina
   assertEquals(res.beatenDown, false);
+});
+
+Deno.test("beaten down triggers when any lethal damage is taken", OPTS, () => {
+  const sheet = makeSheet();
+  const res = applyAttackDamage(sheet, 1, "lethal", 0, 0, false);
+  assertEquals(res.beatenDown, true);
 });
 
 Deno.test("unconscious when lethal fills track", OPTS, () => {

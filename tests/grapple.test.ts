@@ -2,7 +2,7 @@
 // Full command-flow grapple tests require encounter integration; the pure
 // logic tests here cover checkSpecifiedTargetTilts.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { checkSpecifiedTargetTilts } from "../src/combat/tilts.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };

@@ -203,8 +203,9 @@ export async function sheetSetExec(u: IUrsamuSDK) {
 
     await u.db.modify(target.id, "$set", { "data.cofd": updatedSheet });
     u.send(`Set trait '${trait}' to '${validatedValue}' on ${target.name}'s sheet.`);
-  } catch (err: any) {
-    u.send(`Error: ${err.message}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    u.send(`Error: ${msg}`);
   }
 }
 

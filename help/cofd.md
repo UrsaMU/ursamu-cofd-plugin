@@ -1,6 +1,6 @@
 cofd  -- Chronicles of Darkness 2e plugin: sheets, chargen, dice, combat,
         beats/XP, conditions/tilts, gear, NPCs, social maneuvering, and
-        Vampire (The Requiem) overlay.
+        Changeling (The Lost) overlay.
 
 Quick start:
   +cg                       Begin or continue character generation.
@@ -42,18 +42,14 @@ Combat:
 Social:
   help social      Social Maneuvering (Core p.81-83).
 
-Vampire (The Requiem):
-  help vitae       Vitae pool: spend, gain, blush, boost.
-  help touchstone  Mask and Dirge anchors.
-
 Reference topics:
   help vices       Catalog of Vices.
   help virtues     Catalog of Virtues.
   help merit-combat  Combat-relevant Merits.
 
 Templates:
-  Mortal, Vampire (Requiem), Werewolf (Forsaken), Mage (Awakening),
-  Changeling (Lost). Each overlays Morality, Power Stat, Energy
-  pool, and template fields. See help cg for chargen flow.
+  Mortal, Changeling (Lost). Each overlays Morality (Clarity/Integrity),
+  Power Stat (Wyrd), Energy pool (Glamour), and template-specific fields
+  (Seeming, Kith, Court, Needle, Thread). See help cg for chargen flow.
 
 See also: cg, sheet, roll

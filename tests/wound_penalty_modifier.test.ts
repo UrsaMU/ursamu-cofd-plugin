@@ -1,7 +1,7 @@
 // buildModifiers() applies the attacker's wound penalty when attackerSheet
 // or attackerWoundPenalty is supplied.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { buildModifiers } from "../src/combat/modifiers.ts";
 import { defaultSheet, setTrait } from "../src/stats/index.ts";
 import type { CofdSheet } from "../src/stats/sheet.ts";

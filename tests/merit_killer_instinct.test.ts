@@ -1,6 +1,6 @@
 // Killer Instinct (1-3): +dots vs beaten-down or heavily-wounded targets.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { killerInstinctBonus, buildModifiers } from "../src/combat/modifiers.ts";
 import { defaultSheet } from "../src/stats/sheet.ts";
 

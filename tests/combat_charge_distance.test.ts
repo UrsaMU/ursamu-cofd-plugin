@@ -1,6 +1,6 @@
 // Charge feasibility -- attacker who has already moved this round cannot charge.
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   addParticipant,
   computeSpeed,
@@ -24,8 +24,10 @@ function seed(store: MockObjectStore, id: string, name: string) {
   sheet.skills.brawl = 2;
   sheet.skills.athletics = 2;
   const obj = mockPlayer({ id, name, state: { cofd: sheet } });
-  // deno-lint-ignore no-explicit-any
-  (store as any).store.set(id, obj);
+  const rawStore = (store as unknown as {
+    store: Map<string, Record<string, unknown>>;
+  }).store;
+  rawStore.set(id, obj as unknown as Record<string, unknown>);
   return obj;
 }
 
@@ -43,38 +45,40 @@ async function runCharge(moved: boolean) {
   const bId = "b-" + crypto.randomUUID();
   const a = seed(store, aId, "Alice");
   const b = seed(store, bId, "Bob");
+  const u = mockU({ me: a, objectStore: store, args: ["Bob/charge"] });
   const roomId = "room-charge-" + crypto.randomUUID();
   const enc = await createEncounter(roomId);
   await addParticipant(enc.id, a);
   await addParticipant(enc.id, b);
 
-  const u = mockU({ me: a, objectStore: store, args: ["Bob/charge"] });
-  // deno-lint-ignore no-explicit-any
-  (u as any).here = { id: roomId, broadcast: () => {} };
-  // deno-lint-ignore no-explicit-any
-  (u.db as any).search = async (q: Record<string, unknown>) => {
-    if (q.id) {
-      // deno-lint-ignore no-explicit-any
-      const f = (store as any).store.get(q.id);
-      return f ? [f] : [];
-    }
-    // deno-lint-ignore no-explicit-any
-    return (store as any).search(q);
+  (u as unknown as { here: Record<string, unknown> }).here = {
+    id: roomId,
+    broadcast: () => {},
   };
-  // deno-lint-ignore no-explicit-any
-  (u.util as any).target = async () => b;
+  (u.db as unknown as Record<string, unknown>).search = (
+    q: Record<string, unknown>,
+  ) => {
+    if (q.id) {
+      const f = store.get(q.id as string);
+      return Promise.resolve(f ? [f] : []);
+    }
+    return Promise.resolve(store.search(q));
+  };
+  (u.util as unknown as Record<string, unknown>).target = () =>
+    Promise.resolve(b);
 
   await rollInitiative(enc.id, u);
   if (moved) await setMoved(enc.id, a.id, true);
   const fresh = await getEncounterForRoom(roomId);
   assert(fresh);
   const idx = fresh.participants.findIndex((p) => p.actorId === a.id);
-  // deno-lint-ignore no-explicit-any
-  await encounterDb.update({ id: enc.id } as any, { ...fresh, turnIdx: idx });
+  await encounterDb.update(
+    { id: enc.id } as unknown as Record<string, unknown>,
+    { ...fresh, turnIdx: idx },
+  );
 
   await attackExec(u);
-  // deno-lint-ignore no-explicit-any
-  return (u as any)._sent as string[];
+  return (u as unknown as { _sent: string[] })._sent;
 }
 
 Deno.test("/charge after moving is rejected", OPTS, async () => {

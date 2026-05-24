@@ -9,6 +9,7 @@ import {
   updateCgState,
   type CofdCgState,
 } from "../chargen/index.ts";
+import { COFD_TEMPLATES } from "../gamelines/templates.ts";
 
 export async function cgExec(u: IUrsamuSDK) {
   const sw = (u.cmd.args[0] ?? "").toLowerCase().trim();
@@ -68,8 +69,9 @@ export async function cgExec(u: IUrsamuSDK) {
       u.send(`Successfully set cg trait '${key}' to '${value}'.`);
       // Re-send status and instructions for the stage
       u.send(await getStageInstructions(u.util.displayName(target, u.me), cgState));
-    } catch (err: any) {
-      u.send(`%crError:%cn ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      u.send(`%crError:%cn ${msg}`);
     }
     return;
   }
@@ -95,7 +97,12 @@ export async function cgExec(u: IUrsamuSDK) {
       return;
     }
 
-    if (cgState.stage === 6) {
+    const sheet = cgState.sheet;
+    const tKey = (sheet.template || "mortal").toLowerCase().trim();
+    const tmpl = COFD_TEMPLATES[tKey] || COFD_TEMPLATES.mortal;
+    const maxStage = tmpl.validPowers.length > 0 ? 7 : 6;
+
+    if (cgState.stage === maxStage) {
       // Idempotency: refuse if a CGEN job is already pending for this player.
       if (cgState.submittedJob) {
         const existing = await jobs.findOne({ number: cgState.submittedJob });
@@ -105,7 +112,6 @@ export async function cgExec(u: IUrsamuSDK) {
         }
       }
 
-      const sheet = cgState.sheet;
       if (!sheet.specialties) sheet.specialties = {};
 
       const submitterName = u.util.displayName(target, u.me);

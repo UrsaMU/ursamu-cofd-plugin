@@ -1,7 +1,7 @@
 // Tests for the M4 Beats/XP economy: cost lookup, conversion, and spend.
 
-import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   addBeats,
   categorizeTrait,

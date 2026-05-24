@@ -6,8 +6,8 @@
 // FIX: extAbandon checks ownerId match OR u.canEdit(u.me, owner).
 // /finish, /list all, /contest also require staff.
 
-import { assert, assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "../helpers/mockU.ts";
 import { extendedExec } from "../../src/commands/extended.ts";
 import {

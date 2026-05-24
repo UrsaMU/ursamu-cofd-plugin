@@ -1,5 +1,5 @@
 // deno-lint-ignore-file require-await
-import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import type { IUrsamuSDK } from "@ursamu/ursamu";
 
 // IDBObj mirrors the internal shape from @ursamu/ursamu -- not yet in public exports.
 type IDBObj = {
@@ -31,8 +31,8 @@ export class MockObjectStore {
       id,
       name: data.name,
       flags: data.flags ?? new Set(["thing"]),
-      location: (data as any).location,
-      state: (data as any).state ?? {},
+      location: data.location,
+      state: data.state ?? {},
       contents: [],
     };
     this.store.set(id, obj);
@@ -67,7 +67,7 @@ export class MockObjectStore {
           // "data.X" maps to state.X
           obj.state[k.slice(5)] = v;
         } else {
-          (obj as any)[k] = v;
+          (obj as Record<string, unknown>)[k] = v;
         }
       }
     }

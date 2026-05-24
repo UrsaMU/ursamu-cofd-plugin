@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { notesExec } from "../src/commands/notes.ts";
 import type { CofdNotes } from "../src/notes/index.ts";
@@ -7,11 +7,12 @@ import type { CofdNotes } from "../src/notes/index.ts";
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 
 function wireDb(player: { id: string; state: Record<string, unknown> }) {
-  return async (id: string, op: string, data: Record<string, unknown>) => {
-    if (id !== player.id) return;
+  return (id: string, op: string, data: Record<string, unknown>) => {
+    if (id !== player.id) return Promise.resolve();
     if (op === "$set" && data["data.cofd_notes"] !== undefined) {
       player.state.cofd_notes = data["data.cofd_notes"];
     }
+    return Promise.resolve();
   };
 }
 
@@ -54,7 +55,7 @@ describe("+notes", OPTS, () => {
     const owner = mockPlayer({ id: "owner", name: "Alice", state: { cofd_notes: { secret: { name: "Secret", text: "shh", visibility: "private", createdAt: 1, updatedAt: 1, createdBy: "owner" } } } });
     const viewer = mockPlayer({ id: "viewer", name: "Bob" });
     const u = mockU({ me: viewer, args: ["", "Alice/Secret"] });
-    u.util.target = async () => owner;
+    u.util.target = () => Promise.resolve(owner);
     u.util.displayName = (o) => o.name ?? "?";
 
     await notesExec(u);
@@ -65,7 +66,7 @@ describe("+notes", OPTS, () => {
     const owner = mockPlayer({ id: "owner", name: "Alice", state: { cofd_notes: { secret: { name: "Secret", text: "shh", visibility: "private", createdAt: 1, updatedAt: 1, createdBy: "owner" } } } });
     const staff = mockPlayer({ id: "wiz", name: "Wiz", flags: new Set(["player", "connected", "admin"]) });
     const u = mockU({ me: staff, args: ["", "Alice/Secret"] });
-    u.util.target = async () => owner;
+    u.util.target = () => Promise.resolve(owner);
     u.util.displayName = (o) => o.name ?? "?";
 
     await notesExec(u);
@@ -114,9 +115,9 @@ describe("+notes", OPTS, () => {
     const owner = mockPlayer({ id: "owner", name: "Alice" });
     const staff = mockPlayer({ id: "wiz", name: "Wiz", flags: new Set(["player", "connected", "admin"]) });
     const u = mockU({ me: staff, args: ["add", "Alice/StaffNote=From staff."] });
-    u.util.target = async () => owner;
+    u.util.target = () => Promise.resolve(owner);
     u.util.displayName = (o) => o.name ?? "?";
-    u.canEdit = async () => true;
+    u.canEdit = () => Promise.resolve(true);
     u.db.modify = wireDb(owner);
 
     await notesExec(u);
@@ -129,7 +130,7 @@ describe("+notes", OPTS, () => {
     const owner = mockPlayer({ id: "owner", name: "Alice" });
     const me = mockPlayer({ id: "rando", name: "Bob" });
     const u = mockU({ me, args: ["add", "Alice/SnoopNote=mine"], canEditResult: false });
-    u.util.target = async () => owner;
+    u.util.target = () => Promise.resolve(owner);
     u.util.displayName = (o) => o.name ?? "?";
 
     await notesExec(u);

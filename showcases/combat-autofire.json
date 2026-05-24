@@ -74,9 +74,10 @@
     }
   },
   "steps": [
-    { "sub": "Equip Jax with an SMG" },
-    { "note": "An SMG (HK MP-5, 31-round clip) is required for autofire bursts." },
+    { "sub": "Equip Jax with an SMG and Spare Magazine" },
+    { "note": "An SMG (HK MP-5, 31-round clip) is required for autofire bursts. A spare 9mm magazine is needed to reload after the bursts drain the chamber." },
     { "cmd": "+gear/add smg-large", "label": "buy SMG" },
+    { "cmd": "+gear/add magazine-9mm-light", "label": "buy spare mag" },
     { "cmd": "+gear/equip 1", "label": "wield SMG" },
 
     { "sub": "Setup: Open and Join" },
@@ -109,11 +110,11 @@
     { "expect": "ATTACK" },
 
     { "sub": "Reload" },
-    { "note": "Reloading an SMG is a single instant action and does not cost Defense." },
+    { "note": "Reloading an SMG is a single instant action and does not cost Defense. +gear/reload consumes one spare magazine stack from inventory." },
     { "cmd": "+combat/next", "as": "admin", "label": "round 3: Marcus" },
     { "cmd": "+combat/next", "as": "admin", "label": "skip to Cass" },
     { "cmd": "+combat/next", "as": "admin", "label": "skip to Jax" },
-    { "cmd": "+reload", "label": "Jax reloads SMG" },
+    { "cmd": "+gear/reload", "label": "Jax reloads SMG" },
     { "expect": "reload" },
 
     { "sub": "Close the Encounter" },

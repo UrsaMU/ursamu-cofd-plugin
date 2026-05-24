@@ -17,7 +17,8 @@ Syntax:
 
 Switches:
   /start    Open a new Extended Action. Owner is always you.
-  /roll     Roll your active action. Stacks with /wp /rote /9again /8again.
+  /roll     Roll your active action. Stacks with /wp, /rote, /9again, /8again
+            and /job=N (posts roll results to Job #N).
   /status   Show one action.
   /list     mine (default), here (this room), all (staff).
   /abandon  Owner or staff.
@@ -38,6 +39,7 @@ Examples:
   +extended/start strength+stamina=15/6/hour/cum Force the cell door
   +extended/roll
   +extended/roll/wp -1
+  +extended/roll/wp/job=1024 -1
   +extended/list here
 
 More:

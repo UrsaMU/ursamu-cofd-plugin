@@ -98,27 +98,28 @@ export function validateCurrentStage(cgState: CofdCgState): { valid: boolean; er
     }
 
     case 6: {
-      let startingDots = 0;
-      if (sheet.template === "vampire") startingDots = 3;
-      if (sheet.template === "werewolf") startingDots = 3;
-      if (sheet.template === "mage") startingDots = 6;
-      if (sheet.template === "changeling") startingDots = 3;
-
-      const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
-      if (allocatedPowers !== startingDots) {
-        return {
-          valid: false,
-          error: `Power dots allocation is invalid. You must allocate exactly ${startingDots} starting power dots.\n` +
-                 `Currently allocated: ${allocatedPowers} dots.`
-        };
-      }
-
       const allocatedMerits = Object.keys(sheet.merits || {}).reduce((acc, m) => acc + (sheet.merits[m] || 0), 0);
       if (allocatedMerits !== 7) {
         return {
           valid: false,
           error: `Merits allocation is invalid. You must allocate exactly 7 starting merits dots.\n` +
                  `Currently allocated: ${allocatedMerits} dots.`
+        };
+      }
+      break;
+    }
+
+    case 7: {
+      let startingDots = 0;
+      if (sheet.template === "changeling") startingDots = 3;
+
+      const pName = tmpl.name === "Changeling: The Lost" ? "Contracts" : "Powers";
+      const allocatedPowers = tmpl.validPowers.reduce((acc, p) => acc + (sheet.powers[p] || 0), 0);
+      if (allocatedPowers !== startingDots) {
+        return {
+          valid: false,
+          error: `${pName} allocation is invalid. You must allocate exactly ${startingDots} starting ${pName.toLowerCase()} dots.\n` +
+                 `Currently allocated: ${allocatedPowers} dots.`
         };
       }
       break;

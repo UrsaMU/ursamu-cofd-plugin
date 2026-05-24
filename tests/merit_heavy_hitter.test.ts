@@ -1,6 +1,6 @@
 // Heavy Hitter (3 dots, melee only) -- +1 raw hit when wielding melee.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { heavyHitterBonus } from "../src/combat/modifiers.ts";
 import { defaultSheet } from "../src/stats/sheet.ts";
 

@@ -92,7 +92,8 @@ export function setTrait(sheet: CofdSheet, trait: string, value: string | number
   }
 
   if (["concept", "virtue", "vice"].includes(key)) {
-    (sheet as any)[key] = value as string;
+    const prop = key as "concept" | "virtue" | "vice";
+    sheet[prop] = value as string;
     return sheet;
   }
 

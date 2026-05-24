@@ -1,7 +1,7 @@
 // +prove command tests.
 
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import { resolveTrait } from "../src/roller/index.ts";
@@ -54,10 +54,10 @@ describe("resolveTrait", OPTS, () => {
     assertEquals(resolveTrait("", defaultSheet()), null);
   });
 
-  it("resolves vampire power stat via 'bp' alias", () => {
-    const s = sheetWith({ template: "vampire", powerStatValue: 2 });
-    const r = resolveTrait("bp", s);
-    assertEquals(r?.label, "Blood Potency");
+  it("resolves changeling power stat via 'wyrd'", () => {
+    const s = sheetWith({ template: "changeling", powerStatValue: 2 });
+    const r = resolveTrait("wyrd", s);
+    assertEquals(r?.label, "Wyrd");
     assertEquals(r?.value, 2);
   });
 });

@@ -1,6 +1,6 @@
 // +combat/recover -- Beaten Down state recovers when 1 Willpower is spent.
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   addParticipant,
   createEncounter,

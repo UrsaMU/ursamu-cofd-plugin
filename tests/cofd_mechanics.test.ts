@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes, assert } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes, assert } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   defaultSheet,
   setTrait,
@@ -64,53 +64,39 @@ describe("CoFD Sheet Operations", () => {
     let sheet = defaultSheet();
     assertEquals(sheet.template, "mortal");
 
-    // Transition to Vampire
-    sheet = setTrait(sheet, "template", "vampire");
-    assertEquals(sheet.template, "vampire");
-    assertEquals(sheet.powerStatValue, 1); // Starts at 1 Blood Potency
-    assertEquals(sheet.energyCurrent, 10); // Vitae max at BP 1 is 10
-
-    // Set Vampire custom field
-    const clanVal = validateTraitValue("clan", "Daeva", sheet);
-    sheet = setTrait(sheet, "clan", clanVal);
-    assertEquals(sheet.customFields.clan, "Daeva");
-
-    // Invalid clan should throw
-    try {
-      validateTraitValue("clan", "Gargoyle", sheet);
-      assert(false, "Should throw for invalid clan");
-    } catch (e) {
-      assert(e instanceof Error);
-    }
-
-    // Set Vampire power (Discipline)
-    const vigorVal = validateTraitValue("vigor", "3", sheet);
-    sheet = setTrait(sheet, "vigor", vigorVal);
-    assertEquals(sheet.powers.vigor, 3);
-
-    // Invalid power name for Vampire should throw
-    try {
-      validateTraitValue("contracts", "3", sheet);
-      assert(false, "Should throw for invalid discipline");
-    } catch (e) {
-      assert(e instanceof Error);
-    }
-
-    // Transition to Changeling
+    // Transition to CtL
     sheet = setTrait(sheet, "template", "changeling");
     assertEquals(sheet.template, "changeling");
-    assertEquals(sheet.powerStatValue, 1); // Wyrd 1
+    assertEquals(sheet.powerStatValue, 1); // Starts at Wyrd 1 by default
     assertEquals(sheet.energyCurrent, 10); // Glamour max at Wyrd 1 is 10
 
-    // Set Changeling custom field
+    // Set CtL custom field (seeming)
     const seemVal = validateTraitValue("seeming", "Beast", sheet);
     sheet = setTrait(sheet, "seeming", seemVal);
     assertEquals(sheet.customFields.seeming, "Beast");
 
-    // Set Changeling Contract power
-    const springVal = validateTraitValue("spring", "2", sheet);
+    // Invalid custom field for CtL should throw
+    try {
+      validateTraitValue("clan", "Daeva", sheet);
+      assert(false, "Should throw for invalid custom field 'clan'");
+    } catch (e) {
+      assert(e instanceof Error);
+      assertStringIncludes(e.message, "Unknown or read-only trait");
+    }
+
+    // Set CtL power (Contract)
+    const springVal = validateTraitValue("spring", "3", sheet);
     sheet = setTrait(sheet, "spring", springVal);
-    assertEquals(sheet.powers.spring, 2);
+    assertEquals(sheet.powers.spring, 3);
+
+    // Invalid power name for CtL should throw
+    try {
+      validateTraitValue("vigor", "3", sheet);
+      assert(false, "Should throw for invalid power 'vigor'");
+    } catch (e) {
+      assert(e instanceof Error);
+      assertStringIncludes(e.message, "Unknown or read-only trait");
+    }
   });
 });
 
@@ -170,17 +156,17 @@ describe("CoFD Roll Parser", () => {
 
   it("parses template-specific powers and attributes in roll expressions", () => {
     let sheet = defaultSheet();
-    sheet = setTrait(sheet, "template", "vampire");
+    sheet = setTrait(sheet, "template", "changeling");
     sheet = setTrait(sheet, "strength", 3);
     sheet = setTrait(sheet, "brawl", 2);
-    sheet = setTrait(sheet, "vigor", 2);
+    sheet = setTrait(sheet, "spring", 2);
 
-    const result = parseRollExpression("Strength + Brawl + Vigor", sheet);
+    const result = parseRollExpression("Strength + Brawl + Spring", sheet);
     assertEquals(result.pool, 7);
     assertEquals(result.terms.length, 3);
     assertStringIncludes(result.terms[0], "strength(3)");
     assertStringIncludes(result.terms[1], "brawl(2)");
-    assertStringIncludes(result.terms[2], "Vigor(2)");
+    assertStringIncludes(result.terms[2], "Spring(2)");
   });
 });
 
@@ -251,12 +237,12 @@ describe("CoFD Merits and Core Resetting", () => {
 
   it("checks compound and complex template-specific prerequisites", () => {
     let sheet = defaultSheet();
-    sheet = setTrait(sheet, "template", "vampire");
+    sheet = setTrait(sheet, "template", "changeling");
 
-    // Merit: 'unseen sense' requires Template: mortal. Our template is vampire.
+    // Merit: 'unseen sense' requires Template: mortal. Our template is changeling.
     try {
       validateTraitValue("unseen sense", "3", sheet);
-      assert(false, "Should throw because template is vampire");
+      assert(false, "Should throw because template is changeling");
     } catch (e) {
       assert(e instanceof Error);
       assertStringIncludes(e.message.toLowerCase(), "requires template = mortal");
@@ -282,27 +268,27 @@ describe("CoFD Merits and Core Resetting", () => {
     let sheet = defaultSheet();
     
     // Set a merit and custom fields
-    sheet = setTrait(sheet, "template", "vampire");
-    sheet = setTrait(sheet, "clan", "Daeva");
+    sheet = setTrait(sheet, "template", "changeling");
+    sheet = setTrait(sheet, "seeming", "Beast");
     sheet = setTrait(sheet, "giant", 3);
-    sheet = setTrait(sheet, "vigor", 2);
+    sheet = setTrait(sheet, "spring", 2);
     sheet = setTrait(sheet, "concept", "Night Stalker");
 
-    assertEquals(sheet.customFields.clan, "Daeva");
+    assertEquals(sheet.customFields.seeming, "Beast");
     assertEquals(sheet.merits["giant"], 3);
-    assertEquals(sheet.powers["vigor"], 2);
+    assertEquals(sheet.powers["spring"], 2);
     assertEquals(sheet.concept, "Night Stalker");
 
     // Reset them
-    sheet = setTrait(sheet, "clan", validateTraitValue("clan", "", sheet));
+    sheet = setTrait(sheet, "seeming", validateTraitValue("seeming", "", sheet));
     sheet = setTrait(sheet, "giant", validateTraitValue("giant", "", sheet));
-    sheet = setTrait(sheet, "vigor", validateTraitValue("vigor", "", sheet));
+    sheet = setTrait(sheet, "spring", validateTraitValue("spring", "", sheet));
     sheet = setTrait(sheet, "concept", validateTraitValue("concept", "", sheet));
 
     // Assert resets occurred
-    assertEquals(sheet.customFields.clan, undefined);
+    assertEquals(sheet.customFields.seeming, undefined);
     assertEquals(sheet.merits["giant"], undefined);
-    assertEquals(sheet.powers["vigor"], undefined);
+    assertEquals(sheet.powers["spring"], undefined);
     assertEquals(sheet.concept, ""); // Concept resets to empty string
   });
 });

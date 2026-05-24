@@ -1,6 +1,6 @@
 // Iron Stamina (1-3): reduces wound penalty toward zero, never positive.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { ironStaminaReducedPenalty } from "../src/combat/modifiers.ts";
 import { defaultSheet } from "../src/stats/sheet.ts";
 

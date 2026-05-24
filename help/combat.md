@@ -7,7 +7,9 @@ Syntax:
   +combat/leave                          Leave without ending the encounter.
   +combat/begin                          Roll initiative and set turn order.
   +combat/order                          Show the current initiative table.
-  +combat/next                           Advance to the next combatant's turn.
+  +combat/next                           Advance turn; AI pumps NPCs until
+                                         next PC turn or scene resolution.
+  +combat/next/manual                    Single-step advance (no AI walker).
   +combat/end                            Close the encounter and clear state.
   +combat/ambush <attacker>=<defender>   Resolve an ambush check before begin.
   +combat/cover <level> [for <player>]   Declare cover.

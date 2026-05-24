@@ -1,8 +1,8 @@
 // Tests for the Phase B combat encounter subsystem.
 // DBO("cofd.encounters") uses an in-memory NeDB during tests.
 
-import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   addParticipant,
   advanceTurn,
@@ -45,13 +45,22 @@ function seedActor(
   attrs: Record<string, number> = {},
 ) {
   const sheet = defaultSheet();
-  sheet.attributes.Dexterity = attrs.Dexterity ?? 2;
-  sheet.attributes.Composure = attrs.Composure ?? 2;
-  const obj = store.create({ id, name, flags: new Set(["player", "connected"]), state: { cofd: sheet } });
+  sheet.attributes.dexterity = attrs.Dexterity ?? 2;
+  sheet.attributes.composure = attrs.Composure ?? 2;
+  const obj = store.create({
+    id,
+    name,
+    flags: new Set(["player", "connected"]),
+    state: { cofd: sheet },
+  });
   // MockObjectStore assigns its own id; patch it.
-  (obj as any).id = id;
-  (store as any).store.delete(obj.id);
-  (store as any).store.set(id, obj);
+  const oldId = obj.id;
+  obj.id = id;
+  const rawStore = (store as unknown as {
+    store: Map<string, Record<string, unknown>>;
+  }).store;
+  rawStore.delete(oldId);
+  rawStore.set(id, obj);
   return obj;
 }
 
@@ -142,9 +151,13 @@ describe("rollInitiative", OPTS, () => {
     await addParticipant(enc.id, b);
 
     // Wire u.db.get to return from the store.
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
 
     const updated = await rollInitiative(enc.id, u);
@@ -165,9 +178,13 @@ describe("rollInitiative", OPTS, () => {
     await addParticipant(enc.id, low);
     await addParticipant(enc.id, high);
 
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
 
     // Run initiative several times to confirm high always beats low statistically.
@@ -198,9 +215,13 @@ describe("advanceTurn", OPTS, () => {
     const b = seedActor(store, "adv-p2", "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
 
@@ -218,9 +239,13 @@ describe("advanceTurn", OPTS, () => {
     const b = seedActor(store, "wrap-p2", "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
 
@@ -240,9 +265,13 @@ describe("advanceTurn", OPTS, () => {
     const b = seedActor(store, "def-p2", "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
 
@@ -313,9 +342,13 @@ describe("removeParticipant when it is their turn", OPTS, () => {
     const b = seedActor(store, `rm-p2-${uid}`, "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
 
@@ -388,12 +421,13 @@ describe("delayCurrent + reclaimDelayed", OPTS, () => {
     const b = seedActor(store, "dly-p2", "B", { Dexterity: 1, Composure: 1 });
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    // deno-lint-ignore no-explicit-any
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      // deno-lint-ignore no-explicit-any
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      // deno-lint-ignore no-explicit-any
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
     const live = await getEncounterForRoom("room-delay-1");
@@ -418,10 +452,8 @@ describe("delayCurrent + reclaimDelayed", OPTS, () => {
     const enc = await createEncounter("room-reclaim-no");
     const a = mockPlayer({ id: "rec-p1", name: "A" });
     await addParticipant(enc.id, a);
-    // deno-lint-ignore no-explicit-any
     await (await import("../src/combat/encounter.ts")).encounterDb.update(
-      // deno-lint-ignore no-explicit-any
-      { id: enc.id } as any,
+      { id: enc.id } as unknown as Record<string, unknown>,
       { ...enc, status: "active" },
     );
     const out = await reclaimDelayed(enc.id, "rec-p1");
@@ -438,12 +470,13 @@ describe("advanceTurn round wrap", OPTS, () => {
     const b = seedActor(store, "wrp-p2", "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    // deno-lint-ignore no-explicit-any
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      // deno-lint-ignore no-explicit-any
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      // deno-lint-ignore no-explicit-any
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
 
@@ -469,12 +502,13 @@ describe("advanceTurn round wrap", OPTS, () => {
     const b = seedActor(store, "mc-p2", "B");
     await addParticipant(enc.id, a);
     await addParticipant(enc.id, b);
-    // deno-lint-ignore no-explicit-any
-    (u.db as any).search = async (q: Record<string, unknown>) => {
-      // deno-lint-ignore no-explicit-any
-      if (q.id) return [(store as any).store.get(q.id)].filter(Boolean);
-      // deno-lint-ignore no-explicit-any
-      return (store as any).search(q);
+    (u.db as unknown as Record<string, unknown>).search = (
+      q: Record<string, unknown>,
+    ) => {
+      if (q.id) {
+        return Promise.resolve([store.get(q.id as string)].filter(Boolean));
+      }
+      return Promise.resolve(store.search(q));
     };
     await rollInitiative(enc.id, u);
     const live = await getEncounterForRoom("room-mid-clear");

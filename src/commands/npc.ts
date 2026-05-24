@@ -29,9 +29,11 @@ import {
   newNpcId,
   removeNpcRecord,
   saveNpcRecord,
+  updateNpcAiArchetype,
   updateNpcPowers,
 } from "../npc/directory.ts";
 import type { CofdSheet } from "../stats/index.ts";
+import { listArchetypes } from "../combat/ai/index.ts";
 
 /** Staff gate: admin OR builder flag on the actor. */
 function isStaff(actor: IDBObj): boolean {
@@ -112,7 +114,8 @@ async function npcBuild(u: IUrsamuSDK, rest: string): Promise<void> {
   }
 
   const tier = spec.tier ?? archetype.tier;
-  const sheet = sheetFromArchetype(archetype, tier);
+  // Pass 2: default AI archetype = "beshilu-swarmer" (overridable via /ai).
+  const sheet = sheetFromArchetype(archetype, tier, { aiArchetype: "beshilu-swarmer" });
 
   const npcObj = await u.db.create({
     name: spec.name,
@@ -128,6 +131,7 @@ async function npcBuild(u: IUrsamuSDK, rest: string): Promise<void> {
     archetype: archetype.key,
     tier,
     dreadPowers: sheet.npc.dreadPowers,
+    aiArchetype: sheet.npc.aiArchetype,
     objId: npcObj.id,
     roomId,
     createdAt: Date.now(),
@@ -428,6 +432,92 @@ async function npcDestroy(u: IUrsamuSDK, rest: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// /ai <name>=<archetype>  -- set NPC AI archetype (builder+).
+// ---------------------------------------------------------------------------
+
+async function npcAi(u: IUrsamuSDK, rest: string): Promise<void> {
+  if (!isStaff(u.me)) {
+    u.send("Permission denied. Only staff may manage NPCs.");
+    return;
+  }
+  const eqIdx = rest.indexOf("=");
+  if (eqIdx < 0) {
+    u.send(`Syntax: +npc/ai <name>=<archetype>. Valid: ${listArchetypes().join(", ")}.`);
+    return;
+  }
+  const name = u.util.stripSubs(rest.slice(0, eqIdx)).trim();
+  const archetype = u.util.stripSubs(rest.slice(eqIdx + 1)).trim().toLowerCase();
+  if (!name || !archetype) {
+    u.send(`Syntax: +npc/ai <name>=<archetype>. Valid: ${listArchetypes().join(", ")}.`);
+    return;
+  }
+  const valid = listArchetypes();
+  if (!valid.includes(archetype)) {
+    u.send(`Unknown AI archetype '${archetype}'. Valid: ${valid.join(", ")}.`);
+    return;
+  }
+  const npc = await findNpcObj(u, name);
+  if (!npc) { u.send(`No NPC matches '${name}'.`); return; }
+  if (!(await u.canEdit(u.me, npc))) {
+    u.send("Permission denied. You cannot edit that NPC.");
+    return;
+  }
+  const sheet = (npc.state?.cofd ?? {}) as CofdSheet & {
+    npc?: { archetype?: string; tier?: NpcTier; aiArchetype?: string; dreadPowers?: string[]; lootTable?: string };
+  };
+  const updatedNpc = { ...(sheet.npc ?? {}), aiArchetype: archetype };
+  await u.db.modify(npc.id, "$set", { "data.cofd": { ...sheet, npc: updatedNpc } });
+  const rec = await findNpcByObjId(npc.id);
+  if (rec) { try { await updateNpcAiArchetype(rec.id, archetype); } catch { /* swallow */ } }
+  u.send(`Set ${npc.name ?? "NPC"} AI to '${archetype}'.`);
+}
+
+// ---------------------------------------------------------------------------
+// /aggro <name>=<targetName>  -- spike threat for a target (builder+).
+// ---------------------------------------------------------------------------
+
+async function npcAggro(u: IUrsamuSDK, rest: string): Promise<void> {
+  if (!isStaff(u.me)) {
+    u.send("Permission denied. Only staff may manage NPCs.");
+    return;
+  }
+  const eqIdx = rest.indexOf("=");
+  if (eqIdx < 0) {
+    u.send("Syntax: +npc/aggro <name>=<target-name>");
+    return;
+  }
+  const npcName = u.util.stripSubs(rest.slice(0, eqIdx)).trim();
+  const targetName = u.util.stripSubs(rest.slice(eqIdx + 1)).trim();
+  if (!npcName || !targetName) {
+    u.send("Syntax: +npc/aggro <name>=<target-name>");
+    return;
+  }
+  const npc = await findNpcObj(u, npcName);
+  if (!npc) { u.send(`No NPC matches '${npcName}'.`); return; }
+  if (!(await u.canEdit(u.me, npc))) {
+    u.send("Permission denied. You cannot edit that NPC.");
+    return;
+  }
+  const target = await u.util.target(u.me, targetName, true);
+  if (!target) { u.send(`No target matches '${targetName}'.`); return; }
+
+  // Find this NPC in any active encounter in the room, spike participant.threat[targetId].
+  const { getEncounterForRoom, encounterDb } = await import("../combat/encounter.ts");
+  const roomId = u.here?.id;
+  const enc = roomId ? await getEncounterForRoom(roomId) : null;
+  if (!enc) { u.send("No active encounter here to spike threat in."); return; }
+  const participants = enc.participants.map((p) => {
+    if (p.actorId !== npc.id) return p;
+    const threat = { ...(p.threat ?? {}) };
+    threat[target.id] = 1000;
+    return { ...p, threat };
+  });
+  // deno-lint-ignore no-explicit-any
+  await encounterDb.update({ id: enc.id } as any, { ...enc, participants });
+  u.send(`Spiked ${npc.name ?? "NPC"} threat toward ${target.name ?? "target"}.`);
+}
+
+// ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
 
@@ -455,6 +545,12 @@ export async function npcExec(u: IUrsamuSDK): Promise<void> {
     case "rmpower":
     case "removepower":
       await npcPowerEdit(u, rest, "rm");
+      return;
+    case "ai":
+      await npcAi(u, rest);
+      return;
+    case "aggro":
+      await npcAggro(u, rest);
       return;
     case "destroy":
     case "remove":

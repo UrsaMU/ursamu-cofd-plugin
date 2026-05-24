@@ -11,7 +11,7 @@ import {
   removeCondition,
   resolveCondition,
 } from "../subsystems/conditions.ts";
-import { type CofdSheet } from "../stats/index.ts";
+import type { CofdSheet } from "../stats/index.ts";
 
 /** Pull off a trailing " for <player>" suffix. Returns [body, target]. */
 function splitForTarget(rest: string): { body: string; target: string } {
@@ -30,7 +30,7 @@ function poolLine(sheet: CofdSheet): string {
   return `${base}  Arcane Beats: ${sheet.arcaneBeats ?? 0}/5  Arcane XP: ${sheet.arcaneExperience ?? 0}`;
 }
 
-async function renderConditionList(u: IUrsamuSDK, target: { id: string }, sheet: CofdSheet, label: string) {
+async function renderConditionList(u: IUrsamuSDK, _target: { id: string }, sheet: CofdSheet, label: string) {
   const list = sheet.conditions ?? [];
   const lines: string[] = [];
   lines.push(await divider("C O N D I T I O N S"));

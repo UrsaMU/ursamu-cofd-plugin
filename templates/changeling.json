@@ -4,7 +4,13 @@
   "moralityName": "Clarity",
   "powerStatName": "Wyrd",
   "energyName": "Glamour",
-  "customFields": ["seeming", "kith", "court"],
+  "customFields": [
+    "seeming",
+    "kith",
+    "court",
+    "needle",
+    "thread"
+  ],
   "validPowers": [
     "spring",
     "summer",

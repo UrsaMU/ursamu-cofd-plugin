@@ -1,7 +1,7 @@
 // Sum prereqs: "attr1+attr2>=N" (e.g. Smile Through It needs Composure+Resolve >= 5).
 
-import { assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import { defaultSheet } from "../src/stats/sheet.ts";
 import { checkPrerequisites } from "../src/support/prereq.ts";

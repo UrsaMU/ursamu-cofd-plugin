@@ -2,15 +2,15 @@
 
 Chronicles of Darkness 2e for **UrsaMU**: guided character generation,
 dynamic ASCII sheets, a CoFD-compliant d10 roller, Health track, Beat/XP
-economy, Conditions and Aspirations, and a Vampire: The Requiem overlay.
+economy, Conditions and Aspirations, and a Changeling: The Lost overlay.
 GMCCG-inspired module layout, file-driven supernatural templates.
 
 ---
 
 ## Features
 
-- **File-driven supernatural templates.** Add Mortal, Vampire, Werewolf,
-  Mage, Changeling (or your own) by dropping a JSON file in `templates/`.
+- **File-driven supernatural templates.** Add Mortal, Changeling: The Lost,
+  or minor templates by dropping a JSON file in `templates/`.
 - **Guided character generation (`+cg`).** Six stages with point-budget
   validation at every step.
 - **Dynamic ASCII sheets (`+sheet`).** 78-column wide, template-aware,
@@ -27,9 +27,9 @@ GMCCG-inspired module layout, file-driven supernatural templates.
   Conditions plus 21 Tilts catalogued in `resources/conditions.json`.
   Resolving a Condition or fulfilling an Aspiration awards Beats
   automatically.
-- **Vampire: The Requiem overlay.** Five Clans with Banes, five Covenants,
-  13 Disciplines, full Blood Potency table, Mask/Dirge Touchstones,
-  Vitae spending (`+vitae`), Touchstone tracking (`+touchstone`).
+- **Changeling: The Lost overlay.** Fully implements CtL support. Renders
+  Seeming, Kith, Court, Needle, Thread, Wyrd, Glamour, and Clarity on
+  character sheets, and supports starting power dots in chargen.
 
 ---
 
@@ -69,22 +69,11 @@ GMCCG-inspired module layout, file-driven supernatural templates.
 +aspiration/add[/long] <text> [for <player>]
 +aspiration/remove <#> [for <player>]
 +aspiration/fulfill <#> [for <player>]      Awards 1 Beat.
-
-+vitae [<player>]                       View Vitae + per-turn cap.
-+vitae/spend [N] [for <player>]
-+vitae/gain [N] [for <player>]
-+vitae/blush [for <player>]             1 Vitae, Blush of Life.
-+vitae/boost <attr> [for <player>]      1 Vitae, +2 to a Physical Attribute.
-
-+touchstone [<player>]                  View Mask and Dirge anchors.
-+touchstone/mask <name> [for <player>]
-+touchstone/dirge <name> [for <player>]
-+touchstone/clear-mask, /clear-dirge [for <player>]
 ```
 
 Full per-command help: `help cofd`, `help cg`, `help sheet`, `help roll`,
 `help health`, `help beat`, `help xp`, `help condition`,
-`help aspiration`, `help vitae`, `help touchstone`.
+`help aspiration`.
 
 ---
 
@@ -104,16 +93,16 @@ ursamu-cofd-plugin/
     roller/             parse, execute (wound penalty hook)
     sheet/              render + sections/ composable blocks
     chargen/            state, instructions, validate
-    gamelines/          templates loader + vampire overlay
+    gamelines/          templates loader
     health/             pure track math + wound penalty
     xp/                 pure beats/experience math + cost loader
     subsystems/         conditions, aspirations
     commands/           one file per command + register.ts (addCmd side effects)
   resources/            attributes.json, skills.json, merits.json,
                         conditions.json, xp_costs.json
-  templates/            mortal/vampire/werewolf/mage/changeling JSON
+  templates/            mortal/changeling JSON
   help/                 plain-text MUSH help topics
-  docs/                 design specs (vampire, conditions, xp/beats)
+  docs/                 design specs (ctl, conditions, xp/beats)
   tests/                Deno unit + BDD tests
   showcases/            in-process command demos
   deno.json             tasks + import map

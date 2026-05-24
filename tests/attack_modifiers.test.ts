@@ -1,7 +1,7 @@
 // Tests for the pure attack modifier stack (src/combat/modifiers.ts).
 
-import { assertEquals } from "jsr:@std/assert";
-import { buildModifiers, type AttackOptions } from "../src/combat/modifiers.ts";
+import { assertEquals } from "@std/assert";
+import { buildModifiers } from "../src/combat/modifiers.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 

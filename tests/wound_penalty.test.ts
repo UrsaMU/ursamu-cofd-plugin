@@ -4,7 +4,7 @@
 // positive 0..3 magnitude. The existing tests/health.test.ts cover the raw
 // track-level woundPenalty(track, max) helper that returns 0/-1/-2/-3.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { sheetWoundPenalty } from "../src/health/index.ts";
 import { defaultSheet, setTrait } from "../src/stats/index.ts";
 import type { CofdSheet, HealthTrack } from "../src/stats/sheet.ts";

@@ -1,8 +1,8 @@
 // Move-lock predicate: blocks participants of an active encounter from
 // leaving the room, with admin/wizard exemption.
 
-import { assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import { shouldBlockMove } from "../src/combat/encounter.ts";
 import type { Encounter } from "../src/combat/types.ts";

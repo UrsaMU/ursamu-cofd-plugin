@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { sheetExec, sheetSetExec, rollExec } from "../commands.ts";
 import { defaultSheet, type CofdSheet } from "../cofd.ts";
@@ -51,7 +51,9 @@ describe("+sheet/set command", () => {
     assertEquals(u._dbCalls[0][0], "1"); // ID of target
     assertEquals(u._dbCalls[0][1], "$set");
     // Verify strength is set in db call payload
-    const savedSheet = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const savedSheet = (u._dbCalls[0][2] as Record<string, unknown>)[
+      "data.cofd"
+    ] as CofdSheet;
     assertEquals(savedSheet.attributes.strength, 4);
   });
 
@@ -81,7 +83,9 @@ describe("+sheet/set command", () => {
 
     await sheetSetExec(uAdd);
     assertStringIncludes(uAdd._sent[0], "Added specialty 'Automotive' to skill 'crafts'");
-    const addedSheet = (uAdd._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const addedSheet = (uAdd._dbCalls[0][2] as Record<string, unknown>)[
+      "data.cofd"
+    ] as CofdSheet;
     assertEquals(addedSheet.specialties.crafts, ["Automotive"]);
 
     // 2. Clear specialties
@@ -98,7 +102,9 @@ describe("+sheet/set command", () => {
 
     await sheetSetExec(uClear);
     assertStringIncludes(uClear._sent[0], "Cleared all specialties");
-    const clearedSheet = (uClear._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const clearedSheet = (
+      uClear._dbCalls[0][2] as Record<string, unknown>
+    )["data.cofd"] as CofdSheet;
     assertEquals(clearedSheet.specialties.crafts.length, 0);
   });
 });
@@ -135,7 +141,9 @@ describe("+roll command", () => {
     assertStringIncludes(u._sent[0], "WP");
     // Should have updated database to spend 1 willpower
     assertEquals(u._dbCalls.length, 1);
-    const updatedSheet = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const updatedSheet = (u._dbCalls[0][2] as Record<string, unknown>)[
+      "data.cofd"
+    ] as CofdSheet;
     assertEquals(updatedSheet.advantages.willpowerCurrent, 1);
   });
 

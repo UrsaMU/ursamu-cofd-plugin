@@ -22,5 +22,6 @@ Modifiers per attempt:
   +extended/roll/rote            Reroll initial failures once.
   +extended/roll/9again          Lower again-threshold to 9.
   +extended/roll/8again          Lower again-threshold to 8.
+  +extended/roll/job=N           Post the roll results directly to Job #N.
 
 See also: extended, extended cumulative, roll

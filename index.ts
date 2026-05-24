@@ -5,8 +5,9 @@
 
 import "./commands.ts";
 
-import type { IPlugin, MoveEvent } from "@ursamu/ursamu";
+import type { IPlugin, MoveEvent, ObjectMovedEvent } from "@ursamu/ursamu";
 import { registerPluginRoute, gameHooks, dbojs, send, wsService } from "@ursamu/ursamu";
+import { itemData } from "./src/equipment/objects.ts";
 import { registerHelpDir } from "@ursamu/help-plugin";
 import { registerJobBuckets } from "@ursamu/jobs-plugin";
 import { routeHandler } from "./routes.ts";
@@ -63,6 +64,37 @@ async function onPlayerMove(e: MoveEvent): Promise<void> {
   }
 }
 
+// Ammo-stack merge on every object move. When a magazine ends up in a new
+// container (get, drop, give, teleport, plugin-defined), collapse it into an
+// existing same-key stack on that container. Errors are swallowed: ammo
+// merging is a UX nicety and must not throw into the engine.
+async function onObjectMoved(e: ObjectMovedEvent): Promise<void> {
+  if (!e.to) return; // destroy or detach -- nothing to merge into
+  try {
+    // deno-lint-ignore no-explicit-any
+    const moved = await dbojs.queryOne({ id: e.objectId }) as any;
+    if (!moved) return;
+    const d = itemData(moved);
+    if (!d || d.kind !== "ammo") return;
+    // deno-lint-ignore no-explicit-any
+    const siblings = await dbojs.query({ location: e.to }) as any[];
+    for (const sib of siblings) {
+      if (sib.id === moved.id) continue;
+      const sd = itemData(sib);
+      if (sd?.kind !== "ammo" || sd.key !== d.key) continue;
+      const merged = (sd.count ?? 1) + (d.count ?? 1);
+      await dbojs.modify(
+        { id: sib.id },
+        "$set",
+        // deno-lint-ignore no-explicit-any
+        { "data.cofd_item": { ...sd, count: merged } } as any,
+      );
+      await dbojs.delete({ id: moved.id });
+      return;
+    }
+  } catch (_err) { /* swallow */ }
+}
+
 export const plugin: IPlugin = {
   name: "cofd",
   version: "1.0.0",
@@ -77,11 +109,13 @@ export const plugin: IPlugin = {
     registerJobBuckets(["SHEET", "DOWNTIME"]);
     registerPluginRoute("/api/v1/cofd", routeHandler);
     gameHooks.on("player:move", onPlayerMove);
+    gameHooks.on("object:moved", onObjectMoved);
     return true;
   },
 
   remove: () => {
     gameHooks.off("player:move", onPlayerMove);
+    gameHooks.off("object:moved", onObjectMoved);
   },
 };
 

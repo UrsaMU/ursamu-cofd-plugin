@@ -1,8 +1,8 @@
 // Tests for specialty descriptions: "<name>: <description>" syntax,
 // rename preservation, migration safety, and renderer inline display.
 
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { sheetSetExec } from "../src/commands/sheet.ts";
 import {
@@ -21,7 +21,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", "Boxing: southpaw stance"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.specialties.brawl, ["Boxing"]);
     assertEquals(saved.specialtyDescriptions!.brawl.Boxing, "southpaw stance");
     assertStringIncludes(u._sent[0], "Added specialty 'Boxing' (southpaw stance)");
@@ -33,7 +33,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", "Boxing"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.specialties.brawl, ["Boxing"]);
     assertEquals(saved.specialtyDescriptions!.brawl.Boxing, undefined);
   });
@@ -47,7 +47,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", "Boxing"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.specialtyDescriptions!.brawl.Boxing, "southpaw stance");
   });
 
@@ -60,7 +60,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", "Boxing: orthodox stance"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.specialtyDescriptions!.brawl.Boxing, "orthodox stance");
   });
 
@@ -73,7 +73,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", ""],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     assertEquals(saved.specialties.brawl, []);
     assertEquals(saved.specialtyDescriptions!.brawl, {});
   });
@@ -94,7 +94,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
       args: ["specialty/brawl", "%cgBoxing%cn: %crFAKE%cn focus"],
     });
     await sheetSetExec(u);
-    const saved = (u._dbCalls[0][2] as any)["data.cofd"] as CofdSheet;
+    const saved = (u._dbCalls[0][2] as Record<string, unknown>)["data.cofd"] as CofdSheet;
     // Color codes scrubbed; only sanitized strings remain.
     assertEquals(saved.specialties.brawl[0].includes("%c"), false);
     const desc = saved.specialtyDescriptions!.brawl[saved.specialties.brawl[0]] ?? "";
@@ -104,7 +104,7 @@ describe("+sheet/set specialty -- description", OPTS, () => {
 
 describe("Specialty migration", OPTS, () => {
   it("old sheets without specialtyDescriptions migrate to empty map", () => {
-    const old: any = {
+    const old: Record<string, unknown> = {
       template: "mortal", concept: "", virtue: "", vice: "",
       attributes: { strength: 1, dexterity: 1, stamina: 1, intelligence: 1,
         wits: 1, resolve: 1, presence: 1, manipulation: 1, composure: 1 },
@@ -127,12 +127,12 @@ describe("Specialty renderer", OPTS, () => {
     sheet.specialtyDescriptions = { brawl: { Boxing: "southpaw" } };
     const lines = await skillsSection.render({
       sheet,
-      template: { customFields: [] } as any,
+      template: { customFields: [] } as unknown as Parameters<typeof skillsSection.render>[0]["template"],
       playerName: "Test",
       actorId: "1",
       width: 78,
       // u optional -- skills section does not need it
-    } as any);
+    } as unknown as Parameters<typeof skillsSection.render>[0]);
     const joined = lines.join("\n");
     assertStringIncludes(joined, "Boxing (southpaw)");
   });
@@ -143,11 +143,11 @@ describe("Specialty renderer", OPTS, () => {
     sheet.specialties.brawl = ["Boxing"];
     const lines = await skillsSection.render({
       sheet,
-      template: { customFields: [] } as any,
+      template: { customFields: [] } as unknown as Parameters<typeof skillsSection.render>[0]["template"],
       playerName: "Test",
       actorId: "1",
       width: 78,
-    } as any);
+    } as unknown as Parameters<typeof skillsSection.render>[0]);
     const joined = lines.join("\n");
     assertStringIncludes(joined, "Boxing");
     assertEquals(joined.includes("Boxing ("), false);

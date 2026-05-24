@@ -50,13 +50,16 @@ export function applyAttackDamage(
   const track = sheet.health ?? { bashing: 0, lethal: 0, aggravated: 0 };
   const max = healthMax(sheet);
 
-  const wasFullBefore = totalDamage(track) >= max;
+  const _wasFullBefore = totalDamage(track) >= max;
 
   const damType: DamageType = damageType;
   const newTrack = applyDamage(track, netDamage, damType, max);
   const isFullAfter = totalDamage(newTrack) >= max;
 
-  const beatenDown = damageType === "bashing" && !wasFullBefore && isFullAfter;
+  const stamina = sheet.attributes?.stamina ?? sheet.attributes?.Stamina ?? 1;
+  const beatenDown =
+    (damageType === "bashing" && netDamage > stamina) ||
+    (damageType === "lethal" && netDamage > 0);
   const unconscious = damageType === "lethal" && isFullAfter;
 
   const newSheet: CofdSheet = {

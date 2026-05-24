@@ -9,6 +9,8 @@ Syntax:
   +npc/powers                         List the Dread Powers / Numina catalog.
   +npc/addpower <npc>=<key>           Attach a dread power.
   +npc/rmpower <npc>=<key>            Detach a dread power.
+  +npc/ai <npc>=<ai-archetype>        Set NPC AI archetype (staff).
+  +npc/aggro <npc>=<target>           Spike NPC threat toward target (staff).
   +npc/destroy <name-or-id>           Remove an NPC.
 
 Permissions:

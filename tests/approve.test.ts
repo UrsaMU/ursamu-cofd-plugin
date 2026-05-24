@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockU, mockPlayer } from "./helpers/mockU.ts";
 import { approveExec, unapproveExec } from "../src/commands/approve.ts";
 import { jobs, type IJob } from "@ursamu/jobs-plugin";
@@ -53,11 +53,12 @@ describe("+approve", OPTS, () => {
       me,
       args: ["", "Alice=Welcome aboard."],
     });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
     u.util.displayName = (o) => o.name ?? "Unknown";
-    u.db.modify = async (_id: string, op: string, data: Record<string, unknown>) => {
+    u.db.modify = (_id: string, op: string, data: Record<string, unknown>) => {
       if (op === "$set" && data["data.cofd"] !== undefined) target.state.cofd = data["data.cofd"];
       if (op === "$unset" && "data.cofd_cg" in data) delete target.state.cofd_cg;
+      return Promise.resolve();
     };
 
     await approveExec(u);
@@ -75,7 +76,7 @@ describe("+approve", OPTS, () => {
   it("refuses when no submitted job exists", async () => {
     const target = mockPlayer({ id: "6", name: "Bob", state: {} });
     const u = mockU({ me: mockPlayer({ id: "1", name: "Wiz" }), args: ["", "Bob"] });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
     u.util.displayName = (o) => o.name ?? "Unknown";
 
     await approveExec(u);
@@ -84,7 +85,7 @@ describe("+approve", OPTS, () => {
 
   it("refuses when target is not found", async () => {
     const u = mockU({ args: ["", "Ghost"] });
-    u.util.target = async () => undefined;
+    u.util.target = () => Promise.resolve(undefined);
     await approveExec(u);
     assertStringIncludes(u._sent.join("\n"), "No player matches");
   });
@@ -98,12 +99,13 @@ describe("+unapprove", OPTS, () => {
 
     const me = mockPlayer({ id: "1", name: "Wiz" });
     const u = mockU({ me, args: ["", "Carol=Concept too thin."] });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
     u.util.displayName = (o) => o.name ?? "Unknown";
-    u.db.modify = async (_id: string, op: string, data: Record<string, unknown>) => {
+    u.db.modify = (_id: string, op: string, data: Record<string, unknown>) => {
       if (op === "$set" && data["data.cofd_cg"] !== undefined) {
         target.state.cofd_cg = data["data.cofd_cg"];
       }
+      return Promise.resolve();
     };
 
     await unapproveExec(u);
@@ -121,7 +123,7 @@ describe("+unapprove", OPTS, () => {
   it("refuses without a reason", async () => {
     const target = mockPlayer({ id: "8", name: "Dave", state: { cofd_cg: fakeCgState(9003) } });
     const u = mockU({ args: ["", "Dave"] });
-    u.util.target = async () => target;
+    u.util.target = () => Promise.resolve(target);
 
     await unapproveExec(u);
     assertStringIncludes(u._sent.join("\n"), "reason is required");

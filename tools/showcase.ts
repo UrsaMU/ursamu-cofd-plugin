@@ -143,16 +143,27 @@ function buildMockSDK(player: IDBObj, cmdName: string, args: (string | undefined
     util: {
       // deno-lint-ignore no-control-regex
       stripSubs: (s: string) => s.replace(/\x1b\[[^m]*m/g, "").replace(/%c[a-z]/gi, ""),
-      target: (_a: IDBObj, q: string) =>
-        Promise.resolve(allObjs.find((o) => o.id === q || o.name?.toLowerCase() === q.toLowerCase())),
+      target: (_a: IDBObj, q: string) => {
+        const searchList = [...allObjs, ...exits, ...objects];
+        return Promise.resolve(searchList.find((o) => o.id === q || o.name?.toLowerCase() === q.toLowerCase() || o.name?.toLowerCase().split(";").includes(q.toLowerCase())));
+      },
       displayName: (o: IDBObj) => o.name ?? o.id,
       ljust: (s: string, w: number) => s.padEnd(w),
       rjust: (s: string, w: number) => s.padStart(w),
     },
     db: {
-      search: (q: Record<string, unknown>) => {
+      search: (q: unknown) => {
+        const searchList = [...allObjs, ...exits, ...objects];
+        if (typeof q === "string") {
+          const lc = q.toLowerCase();
+          return Promise.resolve(searchList.filter((o) =>
+            o.id.toLowerCase() === lc ||
+            o.name?.toLowerCase().includes(lc) ||
+            (o.state?.name as string | undefined)?.toLowerCase().includes(lc)
+          ));
+        }
         const shim = q as Record<string, unknown>;
-        return Promise.resolve(allObjs.filter((o) => {
+        return Promise.resolve(searchList.filter((o) => {
           for (const [k, v] of Object.entries(shim)) {
             const cur = (o as Record<string, unknown>)[k];
             if (v instanceof RegExp) {
@@ -556,6 +567,20 @@ async function runShowcase(chosen: ShowcaseFile): Promise<void> {
       if (t.state) Object.assign(tp.state, t.state);
       if (t.location) tp.location = t.location;
       targets.set(name, tp);
+    }
+  }
+
+  // Populate parent contents arrays based on object locations
+  const objs = [player, admin, ...targets.values()];
+  for (const o of objs) {
+    if (o.location) {
+      const parent = objs.find((p) => p.id === o.location);
+      if (parent) {
+        parent.contents ??= [];
+        if (!parent.contents.includes(o)) {
+          parent.contents.push(o);
+        }
+      }
     }
   }
 

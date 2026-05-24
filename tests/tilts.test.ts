@@ -1,7 +1,7 @@
 // Tilts subsystem + +tilt command tests.
 
-import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { mockPlayer, mockU } from "./helpers/mockU.ts";
 import { defaultSheet } from "../src/stats/index.ts";
 import {
@@ -76,8 +76,10 @@ describe("+tilt command", OPTS, () => {
     const me = mockPlayer({ state: { cofd: defaultSheet() } });
     const u = mockU({
       me,
-      dbModify: async (_id, op, data: any) => {
-        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
+      dbModify: (_id, op, data) => {
+        const d = data as Record<string, unknown>;
+        if (op === "$set" && d["data.cofd"]) me.state.cofd = d["data.cofd"];
+        return Promise.resolve();
       },
     });
     u.cmd.args = ["add", "stunned"];
@@ -112,8 +114,10 @@ describe("+tilt command", OPTS, () => {
     const me = mockPlayer({ state: { cofd: defaultSheet() } });
     const u = mockU({
       me,
-      dbModify: async (_id, op, data: any) => {
-        if (op === "$set" && data["data.cofd"]) me.state.cofd = data["data.cofd"];
+      dbModify: (_id, op, data) => {
+        const d = data as Record<string, unknown>;
+        if (op === "$set" && d["data.cofd"]) me.state.cofd = d["data.cofd"];
+        return Promise.resolve();
       },
     });
     u.cmd.args = ["add", "stunned/%cr%chHit by%cn pipe"];

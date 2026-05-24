@@ -39,7 +39,8 @@ export function getStageName(stage: number): string {
     case 3: return "Template Details";
     case 4: return "Attributes";
     case 5: return "Skills";
-    case 6: return "Merits & Powers";
+    case 6: return "Merits";
+    case 7: return "Powers";
     default: return "Unknown";
   }
 }
@@ -65,7 +66,7 @@ export function updateCgState(cgState: CofdCgState, trait: string, val: string):
 
     case 2:
       if (key !== "template") {
-        throw new Error("In Stage 2, you can only set template (e.g. +cg/set template=vampire).");
+        throw new Error("In Stage 2, you can only set template (e.g. +cg/set template=changeling).");
       }
       break;
 
@@ -92,9 +93,16 @@ export function updateCgState(cgState: CofdCgState, trait: string, val: string):
       // portion of the key, not the full storage key.
       const meritRef = parseMeritRef(key);
       const meritDef = COFD_MERITS.find(m => m.key === meritRef.merit);
+      if (!meritDef) {
+        throw new Error("In Stage 6, you can only allocate merits.");
+      }
+      break;
+    }
+
+    case 7: {
       const isPower = tmpl.validPowers.includes(key);
-      if (!meritDef && !isPower) {
-        throw new Error(`In Stage 6, you can only allocate starting powers (${tmpl.validPowers.join(", ")}) or merits.`);
+      if (!isPower) {
+        throw new Error(`In Stage 7, you can only allocate starting powers/contracts (${tmpl.validPowers.join(", ")}).`);
       }
       break;
     }

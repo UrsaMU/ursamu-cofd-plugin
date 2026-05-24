@@ -15,13 +15,18 @@
 
 export * from "jsr:@ursamu/ursamu@^2.6";
 
-// -- Command registry ----------------------------------------------------------
-// Override addCmd so registrations are captured in-process.
-
 export const cmds: any[] = [];
 
 export function addCmd(cmd: any): void {
   cmds.push(cmd);
+}
+
+// Load look command from local ursamu core so it's registered for look-conformat showcase.
+import "../../ursamu/src/commands/look.ts";
+import { cmds as coreCmds } from "../../ursamu/src/services/commands/cmdParser.ts";
+
+for (const c of coreCmds) {
+  if (!cmds.includes(c)) cmds.push(c);
 }
 
 // -- In-memory object store ----------------------------------------------------

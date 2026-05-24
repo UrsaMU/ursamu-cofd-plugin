@@ -1,7 +1,7 @@
 // Tests for the Extended Action subsystem (CoFD 2e core p.70).
 
-import { assert, assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   abandonExtendedAction,
   createExtendedAction,
@@ -87,7 +87,7 @@ describe("parseStartArgs", () => {
   });
 });
 
-describe("newExtendedAction + DBO create/read", { ...OPTS } as any, () => {
+describe("newExtendedAction + DBO create/read", OPTS, () => {
   it("newExtendedAction builds an active record with sane defaults", OPTS, () => {
     const a = newExtendedAction(baseInput());
     assertEquals(a.status, "active");
@@ -119,7 +119,7 @@ describe("newExtendedAction + DBO create/read", { ...OPTS } as any, () => {
   });
 });
 
-describe("recordAttempt", { ...OPTS } as any, () => {
+describe("recordAttempt", OPTS, () => {
   it("accumulates successes and increments attempts", OPTS, async () => {
     const a = await createExtendedAction(baseInput({ ownerId: "rec-1", target: 10, maxRolls: 10 }));
     const r1 = await recordAttempt(a, { successes: 2, exceptional: false, dramatic: false, roll: [8, 9, 3] });
@@ -185,7 +185,7 @@ describe("recordAttempt", { ...OPTS } as any, () => {
   });
 });
 
-describe("abandon / finish", { ...OPTS } as any, () => {
+describe("abandon / finish", OPTS, () => {
   it("abandonExtendedAction transitions active -> abandoned", OPTS, async () => {
     const a = await createExtendedAction(baseInput({ ownerId: "ab-1" }));
     const out = await abandonExtendedAction(a.id);
@@ -202,7 +202,7 @@ describe("abandon / finish", { ...OPTS } as any, () => {
   });
 });
 
-describe("resolve hook", { ...OPTS } as any, () => {
+describe("resolve hook", OPTS, () => {
   it("onExtendedResolve fires with payload on success", OPTS, async () => {
     const seen: ExtendedResolvePayload[] = [];
     const h = (p: ExtendedResolvePayload) => { seen.push(p); };
@@ -230,7 +230,7 @@ describe("resolve hook", { ...OPTS } as any, () => {
   });
 });
 
-describe("contested pair", { ...OPTS } as any, () => {
+describe("contested pair", OPTS, () => {
   it("linkContest pairs two active actions", OPTS, async () => {
     const a = await createExtendedAction(baseInput({ ownerId: "c-A", target: 10, maxRolls: 10 }));
     const b = await createExtendedAction(baseInput({ ownerId: "c-B", target: 10, maxRolls: 10 }));

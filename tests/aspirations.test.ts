@@ -1,7 +1,7 @@
 // Tests for the M5 Aspirations subsystem.
 
-import { assert, assertEquals, assertThrows } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import {
   addAspiration,
   AspirationCapacityError,

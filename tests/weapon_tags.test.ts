@@ -1,7 +1,7 @@
 // Parser for the free-form `special` field on weapon entries.
 
-import { assertEquals } from "jsr:@std/assert";
-import { describe, it } from "jsr:@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 
 import { parseWeaponTags } from "../src/equipment/tags.ts";
 

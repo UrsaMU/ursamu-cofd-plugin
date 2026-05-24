@@ -4,8 +4,12 @@
 // output line over 78 visible chars wraps mid-line and looks broken. The
 // strings asserted here cover the worst-case ASCII rendering of each fix.
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { compactRollExpr } from "../src/commands/roll.ts";
+import { summarize } from "../src/commands/extended.ts";
+import type { ExtendedAction } from "../src/subsystems/extended.ts";
+import { getStageInstructions } from "../src/chargen/instructions.ts";
+import { initCgState } from "../src/chargen/state.ts";
 
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
 
@@ -32,16 +36,26 @@ Deno.test("bug 1a: sheet header is Latin-1 and under 78 cols", OPTS, () => {
 });
 
 Deno.test("bug 1b: chargen header is Latin-1 and under 78 cols", OPTS, () => {
-  const stage = 6;
-  const stageName = "POWERS & MERITS";
-  const headerText = `CHARACTER CREATION -- STAGE ${stage}: ${stageName}`;
-  for (const ch of headerText) {
+  const stage6Name = "MERITS";
+  const headerText6 = `CHARACTER CREATION -- STAGE 6: ${stage6Name}`;
+  for (const ch of headerText6) {
     if (ch.charCodeAt(0) > 0xff) {
       throw new Error(`Non-Latin-1 char ${ch}`);
     }
   }
-  if (headerText.length > 78) {
-    throw new Error(`header text too long: ${headerText.length}`);
+  if (headerText6.length > 78) {
+    throw new Error(`header text too long: ${headerText6.length}`);
+  }
+
+  const stage7Name = "POWERS";
+  const headerText7 = `CHARACTER CREATION -- STAGE 7: ${stage7Name}`;
+  for (const ch of headerText7) {
+    if (ch.charCodeAt(0) > 0xff) {
+      throw new Error(`Non-Latin-1 char ${ch}`);
+    }
+  }
+  if (headerText7.length > 78) {
+    throw new Error(`header text too long: ${headerText7.length}`);
   }
 });
 
@@ -92,3 +106,70 @@ Deno.test("bug 3: 'success' is singular when count is 1", OPTS, () => {
   assertEquals(word(1), "success");
   assertEquals(word(2), "successes");
 });
+
+Deno.test("bug 5: +extended/list summarize output remains under 78 cols per line", OPTS, () => {
+  const longAction: ExtendedAction = {
+    id: "ext-1779635214630-458055",
+    ownerId: "p1",
+    ownerName: "SuperCalifragiListicExpialiDociousName",
+    roomId: "r1",
+    description: "An incredibly long description that would normally blow past the seventy eight character margin",
+    pool: "intelligence+investigation+manipulation+politics",
+    target: 15,
+    maxRolls: 10,
+    interval: "scene",
+    cumulativePenalty: true,
+    tag: "",
+    status: "active",
+    accumulated: 5,
+    attempts: 2,
+    attemptsLog: [],
+    lastRollPenalty: 0,
+    contestId: null,
+    createdAt: 12345678,
+    resolvedAt: null,
+  };
+
+  const output = summarize(longAction);
+  const lines = output.split("\n");
+  assertEquals(lines.length, 2);
+
+  for (const line of lines) {
+    const vis = visibleLen(line);
+    if (vis > 78) {
+      throw new Error(`Line too long (${vis}): ${line}`);
+    }
+    // Latin-1 only
+    for (const ch of line) {
+      if (ch.charCodeAt(0) > 0xff) {
+        throw new Error(`Non-Latin-1 char: ${ch}`);
+      }
+    }
+  }
+});
+
+Deno.test("bug width restraint: stage instructions remain under 78 cols per line", OPTS, async () => {
+  const templates = ["mortal", "changeling"];
+  for (const template of templates) {
+    const cgState = initCgState();
+    cgState.sheet.template = template;
+    const maxStage = template === "changeling" ? 7 : 6;
+    for (let stage = 1; stage <= maxStage; stage++) {
+      cgState.stage = stage;
+      const output = await getStageInstructions("Arthur", cgState);
+      const lines = output.split("\n");
+      for (const line of lines) {
+        const vis = visibleLen(line);
+        if (vis > 78) {
+          throw new Error(`[${template} Stage ${stage}] Line too long (${vis}): ${line}`);
+        }
+        for (const ch of line) {
+          if (ch.charCodeAt(0) > 0xff) {
+            throw new Error(`[${template} Stage ${stage}] Non-Latin-1 char: ${ch}`);
+          }
+        }
+      }
+    }
+  }
+});
+
