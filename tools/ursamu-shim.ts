@@ -13,13 +13,28 @@
 // straight from jsr:@ursamu/ursamu.
 // deno-lint-ignore-file no-explicit-any
 
-export * from "jsr:@ursamu/ursamu@^2.6";
+globalThis.__cmds ??= [];
 
-export const cmds: any[] = [];
+export const cmds: any[] = globalThis.__cmds;
 
 export function addCmd(cmd: any): void {
-  cmds.push(cmd);
+  globalThis.__cmds ??= [];
+  globalThis.__cmds.push(cmd);
 }
+
+export * from "../../ursamu/mod.ts";
+export { header, divider, footer } from "../src/support/format.ts";
+
+import { setTheme } from "@ursamu/globals";
+import { cofdGlobalsOverlay } from "../src/support/theme.ts";
+import { registerFormatHandler } from "../../ursamu/mod.ts";
+import { cofdConformatHandler } from "../src/support/look_format.ts";
+
+// Apply the CoFD Red/Gold theme overlay.
+setTheme(cofdGlobalsOverlay).catch(() => {});
+
+// Register the custom look CONFORMAT handler for the showcase runner.
+registerFormatHandler("CONFORMAT", cofdConformatHandler, { prepend: true });
 
 // Load look command from local ursamu core so it's registered for look-conformat showcase.
 import "../../ursamu/src/commands/look.ts";

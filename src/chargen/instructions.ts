@@ -103,6 +103,10 @@ export async function getStageInstructions(_playerName: string, cgState: CofdCgS
       lines.push(`    %ch%ccVirtue:%cn  ${sheet.virtue}`);
       lines.push(`    %ch%ccVice:%cn    ${sheet.vice}`);
       lines.push("");
+      lines.push("  %chBackstory Note:%cn");
+      lines.push("    A great character has depth. Use %ch+notes/add Backstory=<text>%cn to write");
+      lines.push("    a detailed background/backstory. This is visible to staff during review.");
+      lines.push("");
       lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
       lines.push("    +cg/set concept=<text>   -- Define your character's high-level concept.");
@@ -256,7 +260,10 @@ export async function getStageInstructions(_playerName: string, cgState: CofdCgS
         }
       }
       lines.push("");
-
+      lines.push("  %chMerit Details:%cn");
+      lines.push("    For merits requiring extra details (e.g. Allies, Contacts, Retainer),");
+      lines.push("    use %ch+notes/add <Merit>=<explanation>%cn to document what or who they are.");
+      lines.push("");
       lines.push(await divider(""));
       lines.push("  %chCommands:%cn");
       lines.push("    +cg/set <merit>=<dots>  -- Allocate dots (empty = clear).");

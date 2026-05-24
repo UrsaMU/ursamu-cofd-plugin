@@ -27,8 +27,9 @@
     "exclude": ["tests", "tools", "showcases", "docs"]
   },
   "imports": {
-    "ursamu": "jsr:@ursamu/ursamu@^2.6",
-    "@ursamu/ursamu": "jsr:@ursamu/ursamu@^2.6",
+    "ursamu": "./src/support/ursamu_shim.ts",
+    "@ursamu/ursamu": "./src/support/ursamu_shim.ts",
+    "@ursamu/globals": "../ursamu-sgp-plugin/mod.ts",
     "@ursamu/help-plugin": "https://raw.githubusercontent.com/UrsaMU/help-plugin/v1.0.2/mod.ts",
     "@ursamu/jobs-plugin": "https://raw.githubusercontent.com/UrsaMU/jobs-plugin/v1.4.1/mod.ts",
     "@ursamu/mail-plugin": "https://raw.githubusercontent.com/UrsaMU/mail-plugin/v2.3.1/index.ts",

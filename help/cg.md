@@ -19,6 +19,7 @@ Stages:
 Notes:
   +cg/submit on stage 6 finalizes the sheet to state.cofd and clears the
   chargen workspace. After submission, edits go through +sheet/set.
+  Use +notes to record your backstory and details of any complex merits.
 
 Examples:
   +cg/set concept=Street Detective

@@ -154,6 +154,12 @@ export async function cgExec(u: IUrsamuSDK) {
       lines.push(`for staff review as job #${number}. You will be notified`);
       lines.push(`when staff approve or return the submission.`);
       lines.push(``);
+      lines.push(`%chReminders:%cn`);
+      lines.push(`  - Ensure you have added your character's background/backstory using:`);
+      lines.push(`    %ch+notes/add Backstory=<text>%cn`);
+      lines.push(`  - Document merits requiring detail (e.g. Allies, Contacts) using:`);
+      lines.push(`    %ch+notes/add <Merit Name>=<details>%cn`);
+      lines.push(``);
       lines.push(`%ch+cg%cn shows your current state; %ch+cg/reset%cn discards it`);
       lines.push(`(the open job is unaffected).`);
       lines.push(await footer());

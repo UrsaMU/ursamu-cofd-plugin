@@ -19,7 +19,7 @@
     "jsr:@std/semver@1": "1.0.8",
     "jsr:@std/testing@*": "1.0.18",
     "jsr:@std/testing@0.224": "0.224.0",
-    "jsr:@ursamu/ursamu@*": "2.7.0",
+    "jsr:@ursamu/mushcode@*": "0.6.0",
     "jsr:@ursamu/ursamu@^2.6.0": "2.7.0",
     "jsr:@zaubrik/djwt@^3.0.2": "3.0.2",
     "npm:@deno/sandbox@0.10.0": "0.10.0",
@@ -99,6 +99,9 @@
         "jsr:@std/assert@^1.0.19",
         "jsr:@std/internal@^1.0.13"
       ]
+    },
+    "@ursamu/mushcode@0.6.0": {
+      "integrity": "0503df5a0b1a16b3335739ae7d335cf142746527f5be47f41711b6639ad88ee5"
     },
     "@ursamu/ursamu@2.7.0": {
       "integrity": "80af2e54afd2ee14cc7214a74913675c0b82432da676df565aea4e2426ea82ac",
@@ -525,8 +528,7 @@
       "jsr:@std/fs@0.224",
       "jsr:@std/path@0.224",
       "jsr:@std/testing@0.224",
-      "jsr:@ursamu/mushcode@*",
-      "jsr:@ursamu/ursamu@^2.6.0"
+      "jsr:@ursamu/mushcode@*"
     ]
   }
 }

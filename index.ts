@@ -6,13 +6,16 @@
 import "./commands.ts";
 
 import type { IPlugin, MoveEvent, ObjectMovedEvent } from "@ursamu/ursamu";
-import { registerPluginRoute, gameHooks, dbojs, send, wsService } from "@ursamu/ursamu";
+import { registerPluginRoute, gameHooks, dbojs, send, wsService, registerFormatHandler, unregisterFormatHandler } from "@ursamu/ursamu";
 import { itemData } from "./src/equipment/objects.ts";
+import { cofdConformatHandler } from "./src/support/index.ts";
 import { registerHelpDir } from "@ursamu/help-plugin";
 import { registerJobBuckets } from "@ursamu/jobs-plugin";
 import { routeHandler } from "./routes.ts";
 import { getEncounterForRoom, setMoved } from "./src/combat/encounter.ts";
 import { enforceMoveLock, type MoveLockActor } from "./src/combat/move_lock.ts";
+import { setTheme, resetTheme } from "@ursamu/globals";
+import { cofdGlobalsOverlay } from "./src/support/theme.ts";
 
 // Active-combat move-lock: anyone who has joined an active encounter cannot
 // leave the room until the encounter ends or they leave it explicitly. Admins
@@ -110,12 +113,17 @@ export const plugin: IPlugin = {
     registerPluginRoute("/api/v1/cofd", routeHandler);
     gameHooks.on("player:move", onPlayerMove);
     gameHooks.on("object:moved", onObjectMoved);
+    setTheme(cofdGlobalsOverlay).catch(() => { /* sgp not loaded -- ignore */ });
+    // deno-lint-ignore no-explicit-any
+    (registerFormatHandler as any)("CONFORMAT", cofdConformatHandler, { prepend: true });
     return true;
   },
 
   remove: () => {
     gameHooks.off("player:move", onPlayerMove);
     gameHooks.off("object:moved", onObjectMoved);
+    resetTheme().catch(() => { /* sgp not loaded -- ignore */ });
+    unregisterFormatHandler("CONFORMAT", cofdConformatHandler);
   },
 };
 

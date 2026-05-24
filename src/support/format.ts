@@ -46,7 +46,7 @@ export function formatDottedStatLine(
   base: number,
   temp: number | undefined,
   width: number,
-): string {
+  ): string {
   const labelStr = label + ":";
   const valueStr = (temp !== undefined && temp !== base)
     ? `${base}(${temp})`
@@ -73,3 +73,56 @@ export function formatDottedLine(
   const dots = ".".repeat(Math.max(1, dotsNeeded));
   return `%ch${labelStr}%cn%cx${dots}%cn%ch%cy${value}%cn`;
 }
+
+export function header(title = "", _filler = "=", width = 78): string {
+  let actualWidth = width;
+  let actualFiller = "=";
+  if (typeof _filler === "number") {
+    actualWidth = _filler;
+  } else if (typeof _filler === "string") {
+    actualFiller = _filler;
+  }
+  if (!title) {
+    return `%cr${actualFiller.repeat(actualWidth)}%cn`;
+  }
+  const rightPad = Math.max(0, actualWidth - 7 - title.length);
+  return `%cr${actualFiller.repeat(5)}%cn %ch%cy${title}%cn %cr${actualFiller.repeat(rightPad)}%cn`;
+}
+
+export function divider(title = "", _filler = "-", width = 78): string {
+  let actualWidth = width;
+  let actualFiller = "-";
+  if (typeof _filler === "number") {
+    actualWidth = _filler;
+  } else if (typeof _filler === "string") {
+    actualFiller = _filler;
+  }
+  if (!title) {
+    return `%cr${actualFiller.repeat(actualWidth)}%cn`;
+  }
+  const rightPad = Math.max(0, actualWidth - 7 - title.length);
+  return `%cr${actualFiller.repeat(5)}%cn %ch%cy${title}%cn %cr${actualFiller.repeat(rightPad)}%cn`;
+}
+
+export function footer(title = "", _filler = "=", width = 78): string {
+  let actualWidth = width;
+  let actualTitle = title;
+  let actualFiller = "=";
+  if (typeof title === "number") {
+    actualWidth = title;
+    actualTitle = "";
+  } else if (typeof title === "string") {
+    actualTitle = title;
+    if (typeof _filler === "number") {
+      actualWidth = _filler;
+    } else if (typeof _filler === "string") {
+      actualFiller = _filler;
+    }
+  }
+  if (!actualTitle) {
+    return `%cr${actualFiller.repeat(actualWidth)}%cn`;
+  }
+  const rightPad = Math.max(0, actualWidth - 7 - actualTitle.length);
+  return `%cr${actualFiller.repeat(5)}%cn %ch%cy${actualTitle}%cn %cr${actualFiller.repeat(rightPad)}%cn`;
+}
+
